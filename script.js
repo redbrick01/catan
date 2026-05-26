@@ -1,4 +1,7 @@
 const svg = document.querySelector("#board");
+const appEl = document.querySelector(".app");
+const tabletop = document.querySelector(".tabletop");
+const boardArea = document.querySelector(".board-area");
 const setupScreen = document.querySelector("#setupScreen");
 const playerCount = document.querySelector("#playerCount");
 const nameFields = document.querySelector("#nameFields");
@@ -61,7 +64,10 @@ const shareUrlSelect = document.querySelector("#shareUrlSelect");
 const copyShareUrlButton = document.querySelector("#copyShareUrlButton");
 const lobbyPlayersList = document.querySelector("#lobbyPlayersList");
 const lobbyPlayerCount = document.querySelector("#lobbyPlayerCount");
+const lobbyBotControls = document.querySelector("#lobbyBotControls");
+const lobbyAddBotButton = document.querySelector("#lobbyAddBotButton");
 const lobbyStartButton = document.querySelector("#lobbyStartButton");
+const lobbyStartHint = document.querySelector("#lobbyStartHint");
 const leaveLobbyButton = document.querySelector("#leaveLobbyButton");
 const leaveGameRoomButton = ensureButton("leaveGameRoomButton", "방 나가기", newGameButton?.parentElement, "wide-button muted hidden");
 
@@ -145,7 +151,10 @@ const onlineSession = {
   leavingRoom: false,
   modalKind: null,
   lastPlayerTradeResultAt: 0,
-  lastRobberResultId: null
+  lastRobberResultId: null,
+  playLogRoomId: null,
+  noticeQueue: [],
+  activeNoticeKey: null
 };
 const ONLINE_IDENTITY_KEY = "catanOnlineIdentity";
 const REQUEST_TIMEOUT_MS = 8000;
@@ -232,6 +241,250 @@ function resourceDisplayName(type) {
 
 function resourceAmountText(type, amount) {
   return `${resourceDisplayName(type)} ${Number(amount) || 0}`;
+}
+
+function botBadgeHtml(player) {
+  return player?.isBot ? `<span class="bot-badge" title="봇 플레이어" aria-label="봇 플레이어">봇</span>` : "";
+}
+
+function playerDisplayName(player) {
+  return `${player?.name || "플레이어"}${player?.isBot ? " (봇)" : ""}`;
+}
+
+function activePlayerIsBot() {
+  return Boolean(isOnlinePlayPhase() && game.players[game.active]?.isBot);
+}
+
+function pendingActionLabel(view = game.pendingActionView) {
+  if (!view) return "진행 중인 처리";
+  if (view.type === "discardForSeven") return "카드 버리기";
+  if (view.type === "moveRobber") return "도둑 이동";
+  if (view.type === "chooseRobberVictim") return "약탈 대상 선택";
+  return "진행 중인 처리";
+}
+
+function pendingActionInstruction(view = game.pendingActionView) {
+  if (!view) return "진행 중인 처리를 완료하세요.";
+  if (view.type === "discardForSeven") {
+    return view.role === "discarder"
+      ? `모달에서 버릴 자원 ${view.needed}장을 선택하세요.`
+      : `다른 플레이어가 자원을 버리는 중입니다. 남은 인원: ${view.remainingCount || 0}`;
+  }
+  if (view.type === "moveRobber") {
+    return view.role === "actor"
+      ? "모달 안내를 확인한 뒤 보드에서 도둑을 옮길 타일을 선택하세요."
+      : "현재 행동자가 도둑을 이동하는 중입니다.";
+  }
+  if (view.type === "chooseRobberVictim") {
+    return view.role === "actor"
+      ? "모달에서 자원 1장을 가져올 대상을 선택하세요."
+      : "현재 행동자가 약탈 대상을 선택하는 중입니다.";
+  }
+  return "진행 중인 처리를 완료하세요.";
+}
+
+function currentTurnUxState() {
+  const online = isOnlinePlaying();
+  const viewerSeatIndex = online ? game.viewerSeatIndex : null;
+  const viewerPlayer = Number.isInteger(viewerSeatIndex) ? game.players[viewerSeatIndex] : null;
+  const activePlayer = currentPlayer();
+  const pendingView = game.pendingActionView;
+  const disconnected = online ? disconnectedOnlinePlayers() : [];
+  const base = {
+    online,
+    viewerSeatIndex,
+    viewerPlayer,
+    activePlayer,
+    actingPlayer: null,
+    pendingActors: [],
+    currentFocusPlayer: activePlayer,
+    kind: "waiting",
+    headline: activePlayer ? `${activePlayer.name} 차례입니다` : "대기 중",
+    guideTitle: "대기 중",
+    guideText: "3~4명 닉네임을 입력하고 게임을 시작하세요.",
+    possibleAction: "-",
+    nextAction: "-",
+    blocking: false
+  };
+
+  if (isOnlineEnded()) {
+    return {
+      ...base,
+      currentFocusPlayer: null,
+      kind: "blocking",
+      headline: "게임방이 종료되었습니다",
+      guideTitle: "게임 종료",
+      guideText: onlineEndReasonMessage(onlineSession.state?.endReason),
+      possibleAction: "방 나가기",
+      nextAction: "로비로 나가 새 방을 만들거나 다시 참가하세요.",
+      blocking: true
+    };
+  }
+
+  if (online && disconnected.length) {
+    return {
+      ...base,
+      kind: "blocking",
+      headline: "재접속 대기 중",
+      guideTitle: "재접속 대기",
+      guideText: `${disconnected.map((player) => player.name).join(", ")}의 재접속을 기다리는 중입니다.`,
+      possibleAction: "대기",
+      nextAction: "연결이 복구되면 자동으로 진행할 수 있습니다.",
+      blocking: true
+    };
+  }
+
+  if (isOnlineInitialSetup()) {
+    const setupPlayer = game.players[game.setupIndex] || null;
+    const isViewer = setupPlayer && setupPlayer.id === viewerSeatIndex;
+    const needsSettlement = game.pendingSettlement === null;
+    return {
+      ...base,
+      activePlayer: setupPlayer,
+      actingPlayer: setupPlayer,
+      pendingActors: setupPlayer ? [setupPlayer] : [],
+      currentFocusPlayer: setupPlayer,
+      kind: isViewer ? "action-needed" : setupPlayer?.isBot ? "bot-turn" : "waiting",
+      headline: isViewer ? "내가 행동할 차례입니다" : `현재 진행: ${playerDisplayName(setupPlayer)}`,
+      guideTitle: "초기 배치",
+      guideText: isViewer
+        ? (needsSettlement ? "마을을 놓으세요." : "방금 놓은 마을과 연결된 도로를 놓으세요.")
+        : `${playerDisplayName(setupPlayer)}의 초기 배치를 기다리는 중입니다.`,
+      possibleAction: isViewer ? (needsSettlement ? "마을 배치" : "도로 배치") : "대기",
+      nextAction: needsSettlement ? "마을을 놓은 뒤 연결 도로를 놓습니다." : "도로를 놓으면 다음 순서로 넘어갑니다."
+    };
+  }
+
+  if (online && pendingView) {
+    const actorSeat = pendingView.role === "discarder" ? viewerSeatIndex : pendingView.actorSeatIndex;
+    const actingPlayer = Number.isInteger(actorSeat) ? game.players[actorSeat] : activePlayer;
+    const viewerIsActor = actingPlayer && actingPlayer.id === viewerSeatIndex;
+    return {
+      ...base,
+      actingPlayer,
+      pendingActors: actingPlayer ? [actingPlayer] : [],
+      currentFocusPlayer: actingPlayer || activePlayer,
+      kind: viewerIsActor ? "action-needed" : actingPlayer?.isBot ? "bot-turn" : "pending-wait",
+      headline: viewerIsActor ? "내가 행동할 차례입니다" : `${playerDisplayName(actingPlayer)} 진행 중`,
+      guideTitle: pendingActionLabel(pendingView),
+      guideText: pendingActionInstruction(pendingView),
+      possibleAction: viewerIsActor ? pendingActionLabel(pendingView) : "대기",
+      nextAction: "모달 안내를 기준으로 진행합니다."
+    };
+  }
+
+  if (isOnlinePlayPhase()) {
+    const isViewerActive = activePlayer && activePlayer.id === viewerSeatIndex;
+    const botActive = Boolean(activePlayer?.isBot);
+    if (botActive) {
+      return {
+        ...base,
+        kind: "bot-turn",
+        headline: `${playerDisplayName(activePlayer)} 진행 중`,
+        guideTitle: "봇 진행 중",
+        guideText: "봇이 자동으로 행동을 처리하는 중입니다.",
+        possibleAction: "대기",
+        nextAction: "봇 행동이 끝나면 다음 차례로 넘어갑니다."
+      };
+    }
+    if (isViewerActive) {
+      return {
+        ...base,
+        kind: "my-turn",
+        headline: "내 차례입니다",
+        guideTitle: "내 차례",
+        guideText: game.rolled ? "건설, 교환, 개발 카드 구입 또는 턴 넘기기를 할 수 있습니다." : "주사위를 굴릴 차례입니다.",
+        possibleAction: game.rolled ? "건설/교환/턴 넘기기" : "주사위 굴리기",
+        nextAction: game.rolled ? "할 행동을 마쳤다면 턴을 넘기세요." : "주사위 결과를 확인한 뒤 행동을 선택하세요."
+      };
+    }
+    return {
+      ...base,
+      kind: "waiting",
+      headline: `현재 진행: ${playerDisplayName(activePlayer)}`,
+      guideTitle: "상대 차례",
+      guideText: `${playerDisplayName(activePlayer)}님의 행동을 기다리는 중입니다.`,
+      possibleAction: "대기",
+      nextAction: "내 차례가 오면 행동 버튼이 활성화됩니다."
+    };
+  }
+
+  if (game.winner !== null) {
+    return {
+      ...base,
+      currentFocusPlayer: game.players[game.winner],
+      kind: "blocking",
+      headline: `${game.players[game.winner].name} 승리`,
+      guideTitle: "게임 종료",
+      guideText: `${game.players[game.winner].name} 승리입니다.${winnerVictoryDevText()} 새 게임을 시작할 수 있습니다.`,
+      possibleAction: "새 게임",
+      nextAction: "새 게임을 시작할 수 있습니다.",
+      blocking: true
+    };
+  }
+
+  if (game.phase === "setup1" || game.phase === "setup2") {
+    return {
+      ...base,
+      actingPlayer: activePlayer,
+      pendingActors: activePlayer ? [activePlayer] : [],
+      currentFocusPlayer: activePlayer,
+      kind: "action-needed",
+      headline: `${activePlayer?.name || "플레이어"} 차례입니다`,
+      guideTitle: "초기 배치",
+      guideText: `${activePlayer?.name || "플레이어"} 차례입니다. 마을을 놓은 뒤, 그 마을과 붙은 도로를 놓으세요.`,
+      possibleAction: "마을/도로 배치",
+      nextAction: "두 번째 배치의 마을에서 시작 자원을 받습니다."
+    };
+  }
+
+  if (selectedAction === "discard" || selectedAction === "robber" || selectedAction === "robberVictim" || selectedAction === "roadBuilding") {
+    const label = selectedAction === "discard" ? "카드 버리기"
+      : selectedAction === "robber" ? "도둑 이동"
+        : selectedAction === "robberVictim" ? "약탈 대상 선택" : "도로 건설 카드";
+    return {
+      ...base,
+      actingPlayer: activePlayer,
+      pendingActors: activePlayer ? [activePlayer] : [],
+      currentFocusPlayer: activePlayer,
+      kind: "action-needed",
+      headline: `${activePlayer?.name || "플레이어"} 차례입니다`,
+      guideTitle: label,
+      guideText: selectedAction === "roadBuilding" ? `무료 도로 ${game.pendingFreeRoads}개를 더 놓으세요.` : `${activePlayer?.name || "플레이어"}가 ${label}을 처리해야 합니다.`,
+      possibleAction: label,
+      nextAction: "화면 안내에 따라 선택을 완료하세요."
+    };
+  }
+
+  if (activePlayer) {
+    return {
+      ...base,
+      kind: "active-turn",
+      headline: `${activePlayer.name} 차례입니다`,
+      guideTitle: game.rolled ? "건설/교환" : "주사위 또는 개발 카드",
+      guideText: game.rolled
+        ? `${activePlayer.name} 차례입니다. 도로, 마을, 도시, 개발 카드, 교환을 할 수 있습니다.`
+        : `${activePlayer.name} 차례입니다. 주사위를 굴리세요. 이전 턴에 산 기사 카드는 굴리기 전에도 사용할 수 있습니다.`,
+      possibleAction: game.rolled ? "건설/교환/턴 넘기기" : "주사위 굴리기",
+      nextAction: game.rolled ? "행동을 마치면 턴을 넘기세요." : "굴림 후 자원을 확인하세요."
+    };
+  }
+
+  return base;
+}
+
+function viewerMustAnswerPending() {
+  return Boolean(
+    game.pendingActionView && (
+      game.pendingActionView.role === "discarder"
+      || game.pendingActionView.role === "actor"
+    )
+  );
+}
+
+function viewerMustAnswerTrade() {
+  const trade = onlineSession.state?.pendingPlayerTrade;
+  return Boolean(trade?.role === "responder" && !trade.myResponse);
 }
 
 function publicPoints(player) {
@@ -358,17 +611,22 @@ function setOnlineStatus(element, message, tone = "") {
 
 function onlineErrorMessage(error) {
   const code = String(error?.code || "").toUpperCase();
-  const fallback = error?.message || "요청을 처리할 수 없습니다.";
+  const rawMessage = String(error?.message || "");
+  const fallback = rawMessage
+    ? `${rawMessage} 잠시 후 다시 시도하거나 방장에게 서버 상태를 확인해 달라고 요청하세요.`
+    : "요청을 처리할 수 없습니다. 잠시 후 다시 시도하세요.";
   return {
-    BAD_MESSAGE: "요청 형식이 올바르지 않습니다.",
-    ROOM_NOT_FOUND: "방을 찾을 수 없습니다. 공유받은 URL이나 방 코드를 확인하세요.",
-    ROOM_FULL: "방이 가득 찼습니다.",
-    ROOM_NOT_JOINABLE: "이미 시작되었거나 참가할 수 없는 방입니다.",
-    ROOM_ENDED: "이미 종료된 방입니다.",
+    BAD_MESSAGE: "요청 형식이 올바르지 않습니다. 화면을 새로고침한 뒤 다시 시도하세요.",
+    ROOM_NOT_FOUND: "방을 찾을 수 없습니다. 방 코드가 맞는지 확인하거나 방장에게 새 공유 링크를 요청하세요.",
+    ROOM_FULL: "방 정원이 가득 찼습니다. 방장에게 빈 자리가 있는지 확인하세요.",
+    ROOM_NOT_JOINABLE: "이미 시작되었거나 참가할 수 없는 방입니다. 방장에게 새 방 생성을 요청하세요.",
+    GAME_ALREADY_STARTED: "이미 시작한 방입니다. 방장에게 새 방을 만들어 달라고 요청하세요.",
+    INVALID_NAME: "닉네임을 사용할 수 없습니다. 1~24자 닉네임을 다시 입력하세요.",
+    ROOM_ENDED: "이미 종료된 방입니다. 로비로 나가 새 방을 만들거나 새 공유 링크로 참가하세요.",
     PLAYER_LEFT: "이미 나간 방입니다. 새 방을 만들어 다시 시작하세요.",
-    PLAYER_DISCONNECTED: "연결이 복구된 뒤 다시 시도하세요.",
+    PLAYER_DISCONNECTED: "연결이 끊긴 참가자가 있습니다. 재접속이 완료된 뒤 다시 시도하세요.",
     NOT_YOUR_TURN: "지금은 내 차례가 아닙니다.",
-    ROOM_NOT_READY: "재접속 대기 중인 참가자가 있어 진행할 수 없습니다.",
+    ROOM_NOT_READY: "아직 진행할 수 없습니다. 인원 조건이나 재접속 대기 상태를 확인하세요.",
     INVALID_PLACEMENT: "그 위치에는 배치할 수 없습니다.",
     VERTEX_OCCUPIED: "이미 마을이 있는 위치입니다.",
     EDGE_OCCUPIED: "이미 도로가 있는 위치입니다.",
@@ -381,7 +639,7 @@ function onlineErrorMessage(error) {
     BANK_RESOURCE_EMPTY: "은행에 받을 자원이 부족합니다.",
     ALREADY_ROLLED: "이미 주사위를 굴렸습니다.",
     ROLL_REQUIRED: "주사위를 굴린 뒤 턴을 넘길 수 있습니다.",
-    INVALID_TOKEN: "접속 정보가 만료되었습니다. 다시 참가하세요.",
+    INVALID_TOKEN: "접속 정보가 만료되었습니다. 방 코드나 공유 링크로 다시 참가하세요.",
     TRADE_ALREADY_PENDING: "이미 진행 중인 교환 제안이 있습니다.",
     TRADE_NOT_FOUND: "진행 중인 교환을 찾을 수 없습니다.",
     TRADE_NOT_REQUESTER: "이 교환을 수정하거나 확정할 권한이 없습니다.",
@@ -392,7 +650,10 @@ function onlineErrorMessage(error) {
     INVALID_TRADE_RESOURCES: "교환 자원 구성이 올바르지 않습니다.",
     TRADE_RESOURCES_CHANGED: "자원 상태가 바뀌어 교환할 수 없습니다.",
     INVALID_ACTION: "아직 사용할 수 없는 명령입니다.",
-    SERVER_ERROR: "서버 오류가 발생했습니다."
+    REQUEST_TIMEOUT: "서버 응답이 지연되고 있습니다. 잠시 후 다시 시도하고, 방장 PC에서 서버가 켜져 있는지 확인하세요.",
+    SOCKET_CLOSED: "서버 연결이 끊겼습니다. 같은 네트워크인지 확인하고 방장 PC의 서버 실행 상태를 확인하세요.",
+    SOCKET_ERROR: "서버에 연결할 수 없습니다. 방장 PC에서 서버가 켜져 있는지, 같은 네트워크인지 확인하세요.",
+    SERVER_ERROR: "서버 오류가 발생했습니다. 방장에게 서버를 재시작한 뒤 다시 시도해 달라고 요청하세요."
   }[code] || fallback;
 }
 
@@ -508,7 +769,9 @@ function connectOnlineSocket() {
       if (settled) return;
       settled = true;
       socket.close();
-      reject(new Error("서버에 연결할 수 없습니다. 서버가 켜져 있는지 확인하세요."));
+      const error = new Error("서버에 연결할 수 없습니다.");
+      error.code = "SOCKET_ERROR";
+      reject(error);
     }, 3500);
 
     socket.addEventListener("open", () => {
@@ -527,17 +790,23 @@ function connectOnlineSocket() {
       if (!settled) {
         settled = true;
         clearTimeout(timeoutId);
-        reject(new Error("서버에 연결할 수 없습니다. 서버가 켜져 있는지 확인하세요."));
+        const error = new Error("서버에 연결할 수 없습니다.");
+        error.code = "SOCKET_CLOSED";
+        reject(error);
       }
       renderLobby();
-      rejectPendingRequests(new Error("서버 연결이 끊겼습니다."));
+      const error = new Error("서버 연결이 끊겼습니다.");
+      error.code = "SOCKET_CLOSED";
+      rejectPendingRequests(error);
     });
 
     socket.addEventListener("error", () => {
       if (!settled) {
         settled = true;
         clearTimeout(timeoutId);
-        reject(new Error("서버에 연결할 수 없습니다. 서버가 켜져 있는지 확인하세요."));
+        const error = new Error("서버에 연결할 수 없습니다.");
+        error.code = "SOCKET_ERROR";
+        reject(error);
       }
     });
   });
@@ -546,7 +815,9 @@ function connectOnlineSocket() {
 function sendOnlineCommand(name, payload = {}) {
   const socket = onlineSession.socket;
   if (!socket || socket.readyState !== WebSocket.OPEN) {
-    return Promise.reject(new Error("서버에 연결되어 있지 않습니다."));
+    const error = new Error("서버에 연결되어 있지 않습니다.");
+    error.code = "SOCKET_CLOSED";
+    return Promise.reject(error);
   }
 
   const requestId = makeRequestId();
@@ -563,7 +834,9 @@ function sendOnlineCommand(name, payload = {}) {
     const timeoutId = setTimeout(() => {
       if (!onlineSession.pendingRequests.has(requestId)) return;
       onlineSession.pendingRequests.delete(requestId);
-      reject(new Error("서버 응답이 지연되고 있습니다. 다시 시도하세요."));
+      const error = new Error("서버 응답이 지연되고 있습니다.");
+      error.code = "REQUEST_TIMEOUT";
+      reject(error);
     }, REQUEST_TIMEOUT_MS);
     onlineSession.pendingRequests.set(requestId, {
       resolve: (value) => {
@@ -621,7 +894,7 @@ function handleOnlineMessage(rawMessage) {
     return;
   }
 
-  if (["initialSettlementPlaced", "initialRoadPlaced", "diceRolled", "turnEnded", "roadBuilt", "settlementBuilt", "cityBuilt", "bankTraded", "devCardBought", "devCardPlayed", "freeRoadPlaced", "sevenDiscarded", "robberMoved", "robberVictimChosen", "playerTradeOpened", "playerTradeResponded", "playerTradeChosen", "playerTradeUpdated", "playerTradeCanceled", "playerTradeInvalidated"].includes(message.type)) {
+  if (["botAdded", "botRemoved", "initialSettlementPlaced", "initialRoadPlaced", "diceRolled", "turnEnded", "roadBuilt", "settlementBuilt", "cityBuilt", "bankTraded", "devCardBought", "devCardPlayed", "freeRoadPlaced", "sevenDiscarded", "robberMoved", "robberVictimChosen", "playerTradeOpened", "playerTradeResponded", "playerTradeChosen", "playerTradeUpdated", "playerTradeCanceled", "playerTradeInvalidated"].includes(message.type)) {
     const pending = onlineSession.pendingRequests.get(message.requestId);
     if (pending) {
       onlineSession.pendingRequests.delete(message.requestId);
@@ -660,11 +933,13 @@ function applyOnlineState(state, revision) {
   if (!state) return;
   const nextRevision = Number(revision ?? state.revision ?? 0);
   if (onlineSession.state && nextRevision <= onlineSession.revision) return;
+  const previousState = onlineSession.state;
   onlineSession.revision = nextRevision;
   onlineSession.state = state;
   onlineSession.isHost = state.hostPlayerId === onlineSession.playerId;
   if ((state.status === "playing" || state.status === "ended") && state.matchState) {
     hydrateMatchState(state.matchState);
+    logOnlineStateDelta(previousState, state);
     return;
   }
   renderLobby();
@@ -691,11 +966,169 @@ function resetGameStateFromMatch(matchState) {
   game.usedDevThisTurn = Boolean(nextGame.usedDevThisTurn);
   game.lastDice = nextGame.lastDice || null;
   game.lastProduction = nextGame.lastProduction || [];
+  game.lastTrade = nextGame.lastTrade || null;
   game.lastRobberResult = nextGame.lastRobberResult || null;
   game.bank = { ...STARTING_BANK_RESOURCES, ...(nextGame.bank || {}) };
   game.winner = nextGame.winner ?? null;
   game.winnerSummary = nextGame.winnerSummary || null;
   game.viewerSeatIndex = nextGame.viewerSeatIndex ?? null;
+}
+
+function gameFromState(state) {
+  return state?.matchState?.game || null;
+}
+
+function botNameFromGame(gameState, seatIndex) {
+  const player = gameState?.players?.[seatIndex];
+  return playerDisplayName(player);
+}
+
+function onlineActionPlayerName(gameState, seatIndex) {
+  return playerDisplayName(gameState?.players?.[seatIndex]);
+}
+
+function isViewerSeat(gameState, seatIndex) {
+  return Number.isInteger(seatIndex) && seatIndex === gameState?.viewerSeatIndex;
+}
+
+function pieceDelta(previousPlayer, nextPlayer, key) {
+  return (Number(previousPlayer?.[key]) || 0) - (Number(nextPlayer?.[key]) || 0);
+}
+
+function hasOnlineNoticeBlockingState() {
+  return Boolean(
+    game.pendingActionView
+    || onlineSession.state?.pendingPlayerTrade
+    || disconnectedOnlinePlayers().length
+    || onlineSession.state?.status === "ended"
+    || ["leave-confirm", "room-ended", "reconnect-waiting"].includes(onlineSession.modalKind)
+  );
+}
+
+function showNextOnlineNotice() {
+  if (!onlineSession.enabled || onlineSession.modalKind || hasOnlineNoticeBlockingState()) return;
+  const notice = onlineSession.noticeQueue.shift();
+  if (!notice) return;
+  onlineSession.activeNoticeKey = notice.key;
+  onlineSession.modalKind = "online-action-notice";
+  showModal(notice.title, notice.text);
+  addModalButton("확인", () => {
+    hideModal();
+    onlineSession.activeNoticeKey = null;
+    showNextOnlineNotice();
+  });
+}
+
+function queueOnlineNotice(key, title, text) {
+  if (!key || onlineSession.activeNoticeKey === key || onlineSession.noticeQueue.some((notice) => notice.key === key)) return;
+  onlineSession.noticeQueue.push({ key, title, text });
+  showNextOnlineNotice();
+}
+
+function queueOtherPlayerActionNotice(key, gameState, seatIndex, title, text) {
+  if (isViewerSeat(gameState, seatIndex)) return;
+  queueOnlineNotice(key, title, text);
+}
+
+function describeOnlineBankTrade(previousPlayer, nextPlayer, lastTrade = null, seatIndex = null) {
+  if (!lastTrade || lastTrade.seatIndex !== seatIndex) return "";
+  const ratio = Number(lastTrade.ratio);
+  const giveName = RESOURCES[lastTrade?.give]?.name || "";
+  const getName = RESOURCES[lastTrade?.get]?.name || "";
+  if (!giveName || !getName || !Number.isInteger(ratio) || ratio <= 0) return "";
+  return `${giveName} ${ratio}장 → ${getName} 1장으로 교환했습니다.`;
+}
+
+function queueOnlineActionNotices(previousState, state, previousGame, nextGame) {
+  if (previousGame.phase !== "play" || nextGame.phase !== "play") return;
+  nextGame.players?.forEach((nextPlayer, seatIndex) => {
+    const previousPlayer = previousGame.players?.[seatIndex];
+    if (!previousPlayer || !nextPlayer) return;
+
+    const name = onlineActionPlayerName(nextGame, seatIndex);
+    const keyBase = `${state.roomId}:${state.revision}:${seatIndex}`;
+    const roadDelta = pieceDelta(previousPlayer, nextPlayer, "roads");
+    const settlementDelta = pieceDelta(previousPlayer, nextPlayer, "settlements");
+    const cityDelta = pieceDelta(previousPlayer, nextPlayer, "cities");
+    const devDelta = pieceDelta(nextPlayer, previousPlayer, "devCount");
+    const resourceDelta = (Number(previousPlayer.resourceCount) || 0) - (Number(nextPlayer.resourceCount) || 0);
+
+    if (roadDelta > 0) {
+      queueOtherPlayerActionNotice(`${keyBase}:road`, nextGame, seatIndex, "건설 알림", `${name}님이 도로를 건설했습니다.`);
+    }
+    if (settlementDelta > 0 && cityDelta === 0) {
+      queueOtherPlayerActionNotice(`${keyBase}:settlement`, nextGame, seatIndex, "건설 알림", `${name}님이 마을을 건설했습니다.`);
+    }
+    if (cityDelta > 0) {
+      queueOtherPlayerActionNotice(`${keyBase}:city`, nextGame, seatIndex, "건설 알림", `${name}님이 도시로 업그레이드했습니다.`);
+    }
+    if (devDelta > 0) {
+      queueOtherPlayerActionNotice(`${keyBase}:dev`, nextGame, seatIndex, "개발 카드 알림", `${name}님이 개발 카드 1장을 구입했습니다.`);
+    }
+    if (
+      resourceDelta > 0
+      && roadDelta === 0
+      && settlementDelta === 0
+      && cityDelta === 0
+      && devDelta === 0
+      && previousState.pendingPlayerTrade === state.pendingPlayerTrade
+      && !previousGame.pendingActionView
+      && !nextGame.pendingActionView
+      && nextGame.active === seatIndex
+    ) {
+      const tradeDescription = describeOnlineBankTrade(previousPlayer, nextPlayer, nextGame.lastTrade, seatIndex);
+      if (tradeDescription) {
+        queueOtherPlayerActionNotice(`${keyBase}:bank-trade`, nextGame, seatIndex, "은행/항구 교환 알림", `${name}님이 ${tradeDescription}`);
+      }
+    }
+  });
+}
+
+function logBotPublicAction(gameState, seatIndex, text) {
+  const player = gameState?.players?.[seatIndex];
+  if (!player?.isBot) return;
+  addLog(`${playerDisplayName(player)}: ${text}`, "bot");
+}
+
+function logOnlineStateDelta(previousState, state) {
+  if (!previousState || previousState.roomId !== state.roomId || state.status !== "playing") return;
+  const previousGame = gameFromState(previousState);
+  const nextGame = gameFromState(state);
+  if (!previousGame || !nextGame) return;
+  queueOnlineActionNotices(previousState, state, previousGame, nextGame);
+
+  if (!previousGame.rolled && nextGame.rolled) {
+    logBotPublicAction(nextGame, nextGame.active, "주사위를 굴렸습니다.");
+  }
+
+  if (previousGame.usedDevThisTurn !== nextGame.usedDevThisTurn && nextGame.usedDevThisTurn) {
+    logBotPublicAction(nextGame, nextGame.active, "개발 카드를 사용했습니다.");
+  }
+
+  if (previousGame.pendingActionView?.type === "discardForSeven" && nextGame.pendingActionView?.type !== "discardForSeven") {
+    previousGame.players?.filter((player) => player.isBot).forEach((player) => {
+      if ((previousGame.players[player.id]?.resourceCount || 0) > (nextGame.players[player.id]?.resourceCount || 0)) {
+        addLog(`${playerDisplayName(player)}: 카드를 버렸습니다.`);
+      }
+    });
+  }
+
+  if (previousState.pendingPlayerTrade && nextStateTradeResponseCount(state) > nextStateTradeResponseCount(previousState)) {
+    Object.values(state.pendingPlayerTrade?.responses || {}).forEach((response) => {
+      const player = state.players?.find((entry) => entry.id === response.playerId);
+      if (player?.isBot && !previousState.pendingPlayerTrade?.responses?.[response.playerId]) {
+        addLog(`${playerDisplayName(player)}: 거래에 응답했습니다.`);
+      }
+    });
+  }
+
+  if (previousState.matchState?.robberTile !== state.matchState?.robberTile) {
+    logBotPublicAction(nextGame, previousGame.pendingActionView?.actorSeatIndex ?? nextGame.active, "강도를 이동했습니다.");
+  }
+}
+
+function nextStateTradeResponseCount(state) {
+  return Object.keys(state?.pendingPlayerTrade?.responses || {}).length;
 }
 
 function hydrateMatchState(matchState) {
@@ -712,13 +1145,15 @@ function hydrateMatchState(matchState) {
     : (game.pendingActionView?.type === "moveRobber" && game.pendingActionView.role === "actor"
       ? "robber"
       : (game.pendingFreeRoads > 0 && game.freeRoadOwnerSeat === game.viewerSeatIndex ? "roadBuilding" : "road"));
-  if (!onlineSession.state?.pendingPlayerTrade && onlineSession.modalKind !== "player-trade") hideModal();
+  if (!onlineSession.state?.pendingPlayerTrade && onlineSession.modalKind === "player-trade") hideModal();
   setupScreen.classList.add("hidden");
-  logEl.replaceChildren();
+  if (onlineSession.playLogRoomId !== onlineSession.roomId) {
+    onlineSession.playLogRoomId = onlineSession.roomId;
+    logEl.replaceChildren();
+    addLog("온라인 게임이 시작되었습니다.");
+  }
   if (onlineSession.state?.status === "ended") {
     addLog(onlineEndReasonMessage(onlineSession.state?.endReason));
-  } else {
-    addLog("온라인 게임이 시작되었습니다. 초기 배치 명령은 다음 단계에서 구현합니다.");
   }
   render();
   syncOnlineRoomModals();
@@ -755,36 +1190,77 @@ function renderLobby() {
   state.players.forEach((player) => {
     const row = document.createElement("div");
     row.className = "lobby-player-row";
+    if (player.isBot) row.classList.add("is-bot");
     row.style.setProperty("--player-color", player.color || "#f4c460");
-    const badges = [
-      player.id === state.hostPlayerId ? "방장" : "",
-      player.id === onlineSession.playerId ? "나" : "",
-      player.connected ? "연결됨" : "끊김"
-    ].filter(Boolean);
+    const badges = player.isBot
+      ? [
+        player.id === state.hostPlayerId ? "방장" : "",
+        player.id === onlineSession.playerId ? "나" : "",
+        "봇",
+        "준비됨"
+      ].filter(Boolean)
+      : [
+        player.id === state.hostPlayerId ? "방장" : "",
+        player.id === onlineSession.playerId ? "나" : "",
+        player.connected ? "연결됨" : "끊김"
+      ].filter(Boolean);
     const dot = document.createElement("span");
     dot.className = "dot";
     dot.setAttribute("aria-hidden", "true");
     const name = document.createElement("strong");
     name.textContent = player.name;
+    if (player.isBot) {
+      const badge = document.createElement("span");
+      badge.className = "bot-badge";
+      badge.textContent = "봇";
+      badge.title = "봇 플레이어";
+      badge.setAttribute("aria-label", "봇 플레이어");
+      name.append(" ", badge);
+    }
     const status = document.createElement("span");
+    status.className = "lobby-player-status";
     status.textContent = badges.join(" · ");
     row.append(dot, name, status);
+    if (onlineSession.isHost && state.status === "lobby" && player.isBot) {
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "lobby-remove-bot-button";
+      removeButton.dataset.botPlayerId = player.id;
+      removeButton.textContent = "제거";
+      removeButton.title = `${player.name} 제거`;
+      removeButton.setAttribute("aria-label", `${player.name} 제거`);
+      row.append(removeButton);
+    }
     lobbyPlayersList.append(row);
   });
 
-  const allConnected = state.players.every((player) => player.connected);
-  const hasEnoughPlayers = state.players.length >= 3;
-  const canStart = onlineSession.isHost && state.status === "lobby" && hasEnoughPlayers && allConnected;
+  const humanPlayers = state.players.filter((player) => !player.isBot && !player.left);
+  const totalPlayers = state.players.filter((player) => !player.left);
+  const allConnected = humanPlayers.every((player) => player.connected);
+  const hasHumanPlayer = humanPlayers.length >= 1;
+  const hasEnoughPlayers = totalPlayers.length >= 3;
+  const canManageBots = onlineSession.isHost && state.status === "lobby";
+  const canStart = canManageBots && hasHumanPlayer && hasEnoughPlayers && allConnected;
+  lobbyBotControls?.classList.toggle("hidden", !canManageBots);
+  if (lobbyAddBotButton) {
+    lobbyAddBotButton.disabled = !canManageBots || totalPlayers.length >= (state.maxPlayers || 4);
+    lobbyAddBotButton.title = lobbyAddBotButton.disabled ? "최대 4명까지 참가할 수 있습니다." : "";
+  }
   lobbyStartButton.disabled = !canStart;
   lobbyStartButton.textContent = canStart ? "게임 시작" : "게임 시작";
   if (!onlineSession.isHost) {
     lobbyStartButton.title = "방장만 게임을 시작할 수 있습니다.";
+  } else if (!hasHumanPlayer) {
+    lobbyStartButton.title = "사람 플레이어가 1명 이상 필요합니다.";
   } else if (!hasEnoughPlayers) {
-    lobbyStartButton.title = "3명 이상 모이면 시작할 수 있습니다.";
+    lobbyStartButton.title = "사람과 봇을 합쳐 3명 이상이면 시작할 수 있습니다.";
   } else if (!allConnected) {
-    lobbyStartButton.title = "모든 참가자가 연결되어 있어야 합니다.";
+    lobbyStartButton.title = "모든 사람 참가자가 연결되어 있어야 합니다.";
   } else {
     lobbyStartButton.title = "";
+  }
+  if (lobbyStartHint) {
+    lobbyStartHint.textContent = "사람 1명 이상, 사람+봇 합산 3명 이상이면 시작할 수 있습니다.";
   }
   syncOnlineRoomModals();
 }
@@ -796,6 +1272,33 @@ async function startOnlineGame() {
 
   try {
     await sendOnlineCommand("startGame");
+    setOnlineStatus(copyStatus, "");
+  } catch (error) {
+    setOnlineStatus(copyStatus, onlineErrorMessage(error), "error");
+    renderLobby();
+  }
+}
+
+async function addOnlineBot() {
+  if (!onlineSession.isHost || onlineSession.state?.status !== "lobby") return;
+  if (lobbyAddBotButton) lobbyAddBotButton.disabled = true;
+  setOnlineStatus(copyStatus, "봇을 추가하는 중입니다.", "pending");
+
+  try {
+    await sendOnlineCommand("addBot");
+    setOnlineStatus(copyStatus, "");
+  } catch (error) {
+    setOnlineStatus(copyStatus, onlineErrorMessage(error), "error");
+    renderLobby();
+  }
+}
+
+async function removeOnlineBot(playerId) {
+  if (!onlineSession.isHost || onlineSession.state?.status !== "lobby" || !playerId) return;
+  setOnlineStatus(copyStatus, "봇을 제거하는 중입니다.", "pending");
+
+  try {
+    await sendOnlineCommand("removeBot", { playerId });
     setOnlineStatus(copyStatus, "");
   } catch (error) {
     setOnlineStatus(copyStatus, onlineErrorMessage(error), "error");
@@ -957,11 +1460,6 @@ function syncOnlineRoomModals() {
     hideModal();
   }
 
-  if (game.lastRobberResult?.id && game.lastRobberResult.id !== onlineSession.lastRobberResultId && !game.pendingActionView) {
-    showRobberResultModal(game.lastRobberResult);
-    return;
-  }
-
   if (game.pendingActionView) {
     showOnlinePendingActionModal(game.pendingActionView);
     return;
@@ -977,6 +1475,13 @@ function syncOnlineRoomModals() {
     if (result && result.createdAt !== onlineSession.lastPlayerTradeResultAt) showPlayerTradeResultModal(result);
     else hideModal();
   }
+
+  if (game.lastRobberResult?.id && game.lastRobberResult.id !== onlineSession.lastRobberResultId) {
+    showRobberResultModal(game.lastRobberResult);
+    return;
+  }
+
+  showNextOnlineNotice();
 }
 
 function showOnlinePendingActionModal(view) {
@@ -985,10 +1490,7 @@ function showOnlinePendingActionModal(view) {
       if (onlineSession.modalKind !== "discard-seven") showOnlineDiscardForSevenModal(view);
       return;
     }
-    if (onlineSession.modalKind !== "discard-waiting") {
-      onlineSession.modalKind = "discard-waiting";
-      showModal("카드 버리기 대기", `다른 플레이어가 자원을 버리는 중입니다. 남은 인원: ${view.remainingCount}`);
-    }
+    if (onlineSession.modalKind === "discard-waiting") hideModal();
     return;
   }
 
@@ -1024,16 +1526,28 @@ function showOnlineDiscardForSevenModal(view) {
   const player = game.players[game.viewerSeatIndex];
   const selected = Object.fromEntries(Object.keys(RESOURCES).map((type) => [type, 0]));
   onlineSession.modalKind = "discard-seven";
-  showModal("카드 버리기", `자원 ${view.needed}장을 선택해 버리세요.`);
+  showModal("7 규칙: 카드 버리기", `자원 ${view.needed}장을 선택해 버리세요.`);
+  const panel = document.createElement("div");
+  panel.className = "discard-picker";
+  const head = document.createElement("div");
+  head.className = "discard-picker-head";
+  const progressLabel = document.createElement("strong");
+  const progressTrack = document.createElement("div");
+  progressTrack.className = "discard-progress";
+  const progressBar = document.createElement("span");
+  progressTrack.append(progressBar);
   const list = document.createElement("div");
-  list.className = "resource-editor";
+  list.className = "discard-picker-list";
   const summary = document.createElement("p");
-  summary.className = "trade-summary";
-  const submit = addModalButton("버리기", async () => {
+  summary.className = "discard-picker-summary";
+  head.append(progressLabel, progressTrack);
+  panel.append(head, list, summary);
+  const submit = addModalButton("선택 완료", async () => {
+    const expectedModalKind = onlineSession.modalKind;
     submit.disabled = true;
     try {
       await sendOnlineCommand("discardForSeven", { resources: selected });
-      hideModal();
+      if (onlineSession.modalKind === expectedModalKind) hideModal();
     } catch (error) {
       addLog(onlineErrorMessage(error));
       submit.disabled = false;
@@ -1042,26 +1556,45 @@ function showOnlineDiscardForSevenModal(view) {
 
   function refresh() {
     const total = resourceBundleTotal(selected);
-    summary.textContent = `${total}/${view.needed}장 선택`;
+    const remaining = Math.max(0, view.needed - total);
+    const percent = view.needed > 0 ? Math.min(100, Math.round(total / view.needed * 100)) : 0;
+    progressLabel.textContent = `${total}/${view.needed}장 선택`;
+    progressBar.style.width = `${percent}%`;
+    summary.textContent = remaining > 0
+      ? `${remaining}장을 더 선택하세요.`
+      : "버릴 카드 선택이 완료되었습니다.";
+    summary.dataset.complete = remaining === 0 ? "true" : "false";
     submit.disabled = total !== view.needed;
   }
 
   Object.keys(RESOURCES).forEach((type) => {
+    const info = RESOURCES[type];
     const row = document.createElement("div");
-    row.className = "resource-editor-row";
+    row.className = "discard-picker-row";
     const minus = document.createElement("button");
     minus.type = "button";
     minus.textContent = "-";
     const amount = document.createElement("strong");
+    amount.className = "discard-picker-amount";
     const plus = document.createElement("button");
     plus.type = "button";
     plus.textContent = "+";
     const label = document.createElement("span");
-    label.textContent = `${info.name} (보유 ${player?.resources?.[type] || 0})`;
+    label.className = "discard-picker-label";
+    const icon = document.createElement("span");
+    icon.className = "discard-picker-icon";
+    icon.textContent = info.icon;
+    icon.setAttribute("aria-hidden", "true");
+    const name = document.createElement("span");
+    name.textContent = info.name;
+    const owned = document.createElement("small");
+    owned.textContent = `보유 ${player?.resources?.[type] || 0}`;
+    label.append(icon, name, owned);
     function paint() {
       amount.textContent = String(selected[type]);
       minus.disabled = selected[type] <= 0;
       plus.disabled = selected[type] >= (player?.resources?.[type] || 0) || resourceBundleTotal(selected) >= view.needed;
+      row.dataset.selected = selected[type] > 0 ? "true" : "false";
       refresh();
     }
     minus.addEventListener("click", () => {
@@ -1076,32 +1609,77 @@ function showOnlineDiscardForSevenModal(view) {
     list.append(row);
     paint();
   });
-  modalContent.append(list, summary);
+  modalContent.append(panel);
   refresh();
 }
 
 function showOnlineChooseRobberVictimModal(view) {
   onlineSession.modalKind = "choose-robber-victim";
   showModal("약탈 대상 선택", "자원 1장을 무작위로 가져올 대상을 선택하세요.");
+  const panel = document.createElement("div");
+  panel.className = "robber-victim-picker";
+  const head = document.createElement("div");
+  head.className = "robber-victim-head";
+  const title = document.createElement("strong");
+  title.textContent = "강도와 인접한 상대";
+  const hint = document.createElement("span");
+  hint.textContent = "상대 1명을 선택하면 보유 자원 중 1장을 무작위로 가져옵니다.";
+  head.append(title, hint);
   const list = document.createElement("div");
-  list.className = "trade-review";
-  view.victims.forEach((victim) => {
+  list.className = "robber-victim-list";
+  panel.append(head, list);
+  const victims = Array.isArray(view.victims) ? view.victims : [];
+  if (!victims.length) {
+    const empty = document.createElement("p");
+    empty.className = "robber-victim-empty";
+    empty.textContent = "선택 가능한 대상이 없습니다. 상태가 갱신되는 중입니다.";
+    list.append(empty);
+    modalContent.append(panel);
+    return;
+  }
+  const buttons = [];
+  let requestInFlight = false;
+  victims.forEach((victim) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = `${victim.name} (자원 ${victim.resourceCount}장)`;
+    button.className = "robber-victim-card victim-button";
+    const avatar = document.createElement("span");
+    avatar.className = "robber-victim-avatar";
+    avatar.textContent = String(victim.name || "?").trim().charAt(0) || "?";
+    avatar.setAttribute("aria-hidden", "true");
+    const body = document.createElement("span");
+    body.className = "robber-victim-body";
+    const name = document.createElement("strong");
+    name.textContent = victim.name || "플레이어";
+    const note = document.createElement("small");
+    note.textContent = "무작위 자원 1장";
+    body.append(name, note);
+    const count = document.createElement("span");
+    count.className = "robber-victim-count";
+    count.textContent = `${victim.resourceCount}장`;
+    button.append(avatar, body, count);
     button.addEventListener("click", async () => {
-      button.disabled = true;
+      if (requestInFlight) return;
+      requestInFlight = true;
+      const expectedModalKind = onlineSession.modalKind;
+      buttons.forEach((entry) => {
+        entry.disabled = true;
+      });
       try {
         await sendOnlineCommand("chooseRobberVictim", { victimSeatIndex: victim.seatIndex });
-        hideModal();
+        if (onlineSession.modalKind === expectedModalKind) hideModal();
       } catch (error) {
         addLog(onlineErrorMessage(error));
-        button.disabled = false;
+        requestInFlight = false;
+        buttons.forEach((entry) => {
+          entry.disabled = false;
+        });
       }
     });
+    buttons.push(button);
     list.append(button);
   });
-  modalContent.append(list);
+  modalContent.append(panel);
 }
 
 function showRobberResultModal(result) {
@@ -1117,7 +1695,7 @@ function showRobberResultModal(result) {
     const resource = result.resource ? `${RESOURCES[result.resource]?.name || result.resource} 1장` : "자원 1장";
     showModal("도둑 결과", `${actor}가 ${victim}에게서 ${resource}을 가져왔습니다.`);
   }
-  addModalButton("확인", hideModal);
+  addModalButton("확인", hideModalThenShowNextOnlineNotice);
 }
 
 function robberResultStorageKey(result) {
@@ -1270,9 +1848,11 @@ function onlineTurnBlockedMessage(action) {
   if (!isOnlinePlayPhase()) return "현재는 정식 턴 단계가 아닙니다.";
   if (onlineSession.state?.status === "ended") return "종료된 방에서는 진행할 수 없습니다.";
   if (disconnectedOnlinePlayers().length) return "재접속 대기 중에는 진행할 수 없습니다.";
+  if (activePlayerIsBot()) return "봇 차례입니다. 봇이 행동을 처리하는 중입니다.";
   if (!isMyOnlineTurn()) return "지금은 내 차례가 아닙니다.";
   if (action === "roll" && game.rolled) return "이미 주사위를 굴렸습니다.";
   if (action === "endTurn" && !game.rolled) return "주사위를 굴린 뒤 턴을 넘길 수 있습니다.";
+  if (action === "endTurn" && onlineSession.state?.pendingPlayerTrade) return "진행 중인 플레이어 교환을 먼저 취소하거나 확정하세요.";
   if (game.pendingActionView) return "진행 중인 강도/버리기 처리를 먼저 완료해야 합니다.";
   return "지금은 진행할 수 없습니다.";
 }
@@ -1281,6 +1861,7 @@ function onlineBuildBlockedMessage(kind) {
   if (!isOnlinePlayPhase()) return "현재는 건설 단계가 아닙니다.";
   if (onlineSession.state?.status === "ended") return "종료된 방에서는 건설할 수 없습니다.";
   if (disconnectedOnlinePlayers().length) return "재접속 대기 중에는 건설할 수 없습니다.";
+  if (activePlayerIsBot()) return "봇 차례입니다. 봇이 행동을 처리하는 중입니다.";
   if (!isMyOnlineTurn()) return "지금은 내 차례가 아닙니다.";
   if (!game.rolled) return "주사위를 굴린 뒤 건설할 수 있습니다.";
   if (game.pendingActionView) return "진행 중인 강도/버리기 처리를 먼저 완료해야 합니다.";
@@ -1296,6 +1877,7 @@ function onlineTradeBlockedMessage() {
   if (!isOnlinePlayPhase()) return "현재는 교환할 수 있는 단계가 아닙니다.";
   if (onlineSession.state?.status === "ended") return "종료된 방에서는 교환할 수 없습니다.";
   if (disconnectedOnlinePlayers().length) return "재접속 대기 중에는 교환할 수 없습니다.";
+  if (activePlayerIsBot()) return "봇 차례입니다. 봇이 행동을 처리하는 중입니다.";
   if (!isMyOnlineTurn()) return "지금은 내 차례가 아닙니다.";
   if (!game.rolled) return "주사위를 굴린 뒤 교환할 수 있습니다.";
   if (game.pendingActionView) return "진행 중인 강도/버리기 처리를 먼저 완료해야 합니다.";
@@ -1543,8 +2125,26 @@ function removeDevCard(player, cardId) {
   return player.dev.splice(index, 1)[0];
 }
 
-function addLog(text) {
+function inferLogType(text = "") {
+  if (/주사위|차례/.test(text)) return "turn";
+  if (/건설|마을|도로|도시|업그레이드/.test(text)) return "build";
+  if (/교환|거래/.test(text)) return "trade";
+  if (/개발 카드|기사|풍년|독점/.test(text)) return "dev";
+  if (/도둑|약탈|버림|버리기|가져왔/.test(text)) return "robber";
+  if (/승리|점/.test(text)) return "score";
+  if (/봇/.test(text)) return "bot";
+  return "system";
+}
+
+function isImportantLogType(type) {
+  return ["build", "trade", "dev", "robber", "score", "bot"].includes(type);
+}
+
+function addLog(text, type = "") {
+  const logType = type || inferLogType(text);
   const item = document.createElement("li");
+  item.className = `log-entry log-${logType}${isImportantLogType(logType) ? " is-important" : ""}`;
+  item.dataset.type = logType;
   item.textContent = text;
   logEl.prepend(item);
   while (logEl.children.length > 14) logEl.lastElementChild.remove();
@@ -1558,6 +2158,11 @@ function hideModal() {
   modalActions.replaceChildren();
   onlineSession.modalKind = null;
   renderBoardZoomButton();
+}
+
+function hideModalThenShowNextOnlineNotice() {
+  hideModal();
+  showNextOnlineNotice();
 }
 
 function isModalOpen() {
@@ -2733,6 +3338,10 @@ function resourceBundleTotal(bundle = {}) {
   return Object.values(bundle).reduce((sum, amount) => sum + (Number(amount) || 0), 0);
 }
 
+function overlappingTradeResources(offer = {}, request = {}) {
+  return Object.keys(RESOURCES).filter((type) => (Number(offer[type]) || 0) > 0 && (Number(request[type]) || 0) > 0);
+}
+
 function resourceBundleText(bundle = {}) {
   const entries = Object.entries(bundle).filter(([, amount]) => Number(amount) > 0);
   if (!entries.length) return "없음";
@@ -2847,7 +3456,7 @@ function showPlayerTradeResultModal(result) {
   } else {
     showModal("거래 취소", "자원 상태가 바뀌어 거래가 완료되지 않았습니다.");
   }
-  addModalButton("확인", hideModal);
+  addModalButton("확인", hideModalThenShowNextOnlineNotice);
 }
 
 function showPendingPlayerTradeModal() {
@@ -2906,16 +3515,19 @@ function showOnlinePlayerTradeComposer({ trade = null, counter = null } = {}) {
     const offerEmpty = resourceBundleTotal(offer) <= 0;
     const requestEmpty = resourceBundleTotal(request) <= 0;
     const offerShort = !hasBundleResources(player, offer);
+    const overlap = overlappingTradeResources(offer, request);
     const offerMessage = tradeWarningText([
       offerEmpty ? "줄 자원을 선택하세요" : "",
-      offerShort ? "자원이 없습니다" : ""
+      offerShort ? "자원이 없습니다" : "",
+      overlap.length ? `${overlap.map(resourceDisplayName).join(", ")}은 주고받기를 동시에 선택할 수 없습니다` : ""
     ]);
     const requestMessage = requestEmpty ? "받을 자원을 선택하세요" : "";
-    summary.innerHTML = `<p>내가 줌: ${resourceBundleText(offer)}</p><p>내가 받음: ${resourceBundleText(request)}</p>`;
+    const responders = onlineSession.state?.players?.filter((entry) => entry.id !== onlineSession.playerId && !entry.left) || [];
+    summary.innerHTML = `<p>내가 줌: ${resourceBundleText(offer)}</p><p>내가 받음: ${resourceBundleText(request)}</p><p>대상: 모든 상대 (${responders.length}명)</p><p>상태: 제안 전</p>`;
     setTradeWarning(offerWarning, offerMessage);
     setTradeWarning(requestWarning, requestMessage);
     setTradeWarning(summaryWarning, tradeWarningText([offerMessage, requestMessage]));
-    submit.disabled = offerEmpty || requestEmpty || offerShort;
+    submit.disabled = offerEmpty || requestEmpty || offerShort || overlap.length > 0;
   }
 
   offerZone.append(
@@ -2962,11 +3574,11 @@ function showRequesterPendingTradeModal(trade) {
 
   const offerPanel = document.createElement("section");
   offerPanel.className = "player-trade-zone";
-  offerPanel.innerHTML = `<strong class="player-trade-zone-title">내가 줄 자원</strong><div class="trade-review"><p>${resourceBundleText(trade.offer)}</p></div>`;
+  offerPanel.innerHTML = `<strong class="player-trade-zone-title">내가 줄 자원</strong><div class="trade-review"><p>${resourceBundleText(trade.offer)}</p><p>대상: 모든 상대</p></div>`;
 
   const requestPanel = document.createElement("section");
   requestPanel.className = "player-trade-zone";
-  requestPanel.innerHTML = `<strong class="player-trade-zone-title">받을 자원</strong><div class="trade-review"><p>${resourceBundleText(trade.request)}</p></div>`;
+  requestPanel.innerHTML = `<strong class="player-trade-zone-title">받을 자원</strong><div class="trade-review"><p>${resourceBundleText(trade.request)}</p><p>성사 조건: 모든 응답 후 수락한 상대를 선택</p></div>`;
 
   const responsePanel = document.createElement("section");
   responsePanel.className = "player-trade-zone player-trade-responses";
@@ -2981,7 +3593,8 @@ function showRequesterPendingTradeModal(trade) {
   responders.forEach((player) => {
     const response = responses[player.id];
     const row = document.createElement("div");
-    row.className = "trade-response-row";
+    const responseType = response ? response.type : "waiting";
+    row.className = `trade-response-row trade-response-${responseType}`;
     const label = document.createElement("span");
     label.textContent = `${player.name}: ${response ? response.type === "accept" ? "수락" : response.type === "reject" ? "거절" : "흥정" : "대기"}`;
     row.append(label);
@@ -3041,7 +3654,7 @@ function showResponderPendingTradeModal(trade) {
   const canAccept = hasBundleResources(player, trade.request);
   const review = document.createElement("div");
   review.className = "trade-review";
-  review.innerHTML = `<p>상대가 줌: ${resourceBundleText(trade.offer)}</p><p>내가 줘야 함: ${resourceBundleText(trade.request)}</p><p>내 응답: ${trade.myResponse?.type || "대기"}</p>`;
+  review.innerHTML = `<p>내가 받음: ${resourceBundleText(trade.offer)}</p><p>내가 줌: ${resourceBundleText(trade.request)}</p><p>대상: 모든 상대</p><p>내 응답: ${trade.myResponse?.type || "대기"}</p>`;
   const acceptWarning = createTradeWarning();
   setTradeWarning(acceptWarning, !canAccept ? "자원이 없습니다" : "");
   modalContent.append(review, acceptWarning);
@@ -3484,32 +4097,8 @@ function resetToSetup() {
 }
 
 function guideFor() {
-  if (isOnlineEnded()) return ["게임 종료", onlineEndReasonMessage(onlineSession.state?.endReason)];
-  if (isOnlineInitialSetup()) {
-    const name = onlineSetupPlayerName();
-    if (!isMyOnlineInitialSetupTurn()) return ["초기 배치", `${name}님의 초기 배치 차례입니다.`];
-    if (disconnectedOnlinePlayers().length) return ["재접속 대기", "끊긴 참가자가 돌아올 때까지 초기 배치를 진행할 수 없습니다."];
-    if (game.pendingSettlement === null) return ["초기 배치", `${name}: 마을을 놓으세요.`];
-    return ["초기 배치", `${name}: 방금 놓은 마을과 연결된 도로를 놓으세요.`];
-  }
-  if (isOnlinePlayPhase()) {
-    const name = currentPlayer()?.name || "플레이어";
-    if (!isMyOnlineTurn()) return ["상대 차례", `${name}님의 차례입니다.`];
-    if (disconnectedOnlinePlayers().length) return ["재접속 대기", "끊긴 참가자가 돌아올 때까지 진행할 수 없습니다."];
-    if (!game.rolled) return ["내 차례", "주사위를 굴리세요."];
-    return ["내 차례", "서버 주사위 결과가 반영되었습니다. 턴을 넘길 수 있습니다."];
-  }
-  if (!currentPlayer()) return ["대기 중", "3~4명 닉네임을 입력하고 게임을 시작하세요."];
-  if (game.winner !== null) return ["게임 종료", `${game.players[game.winner].name} 승리입니다.${winnerVictoryDevText()} 새 게임을 시작할 수 있습니다.`];
-  if (game.phase === "setup1" || game.phase === "setup2") {
-    return ["초기 배치", `${currentPlayer().name}: 마을을 놓은 뒤, 그 마을과 붙은 도로를 놓으세요. 두 번째 배치의 마을에서 시작 자원을 받습니다.`];
-  }
-  if (selectedAction === "discard") return ["카드 버리기", "8장 이상 보유자는 버릴 자원을 직접 선택해야 합니다. 모두 완료하면 도둑을 옮길 수 있습니다."];
-  if (selectedAction === "robber") return ["도둑 이동", "도둑을 다른 타일로 옮기세요. 인접한 상대가 있으면 자원 1장을 가져옵니다."];
-  if (selectedAction === "robberVictim") return ["약탈 대상 선택", "도둑이 놓인 지형에 인접한 상대 중 자원 1장을 가져올 대상을 선택하세요."];
-  if (selectedAction === "roadBuilding") return ["도로 건설 카드", `무료 도로 ${game.pendingFreeRoads}개를 더 놓으세요.`];
-  if (!game.rolled) return ["주사위 또는 개발 카드", "주사위를 굴리세요. 이전 턴에 산 기사 카드는 굴리기 전에도 사용할 수 있습니다."];
-  return ["건설/교환", "도로, 마을, 도시, 개발 카드, 은행/항구 교환, 플레이어 교환을 할 수 있습니다. 끝나면 턴 넘기기를 누르세요."];
+  const ux = currentTurnUxState();
+  return [ux.guideTitle, ux.guideText];
 }
 
 function drawTile(tile) {
@@ -3928,6 +4517,9 @@ function renderDevSummary(player) {
 }
 
 function renderSeats() {
+  const ux = currentTurnUxState();
+  const focusId = ux.currentFocusPlayer?.id;
+  const pendingIds = new Set(ux.pendingActors.map((player) => player.id));
   for (let i = 0; i < 4; i++) {
     const seat = document.querySelector(`#seat${i}`);
     const player = game.players[i];
@@ -3938,15 +4530,21 @@ function renderSeats() {
     }
     seat.classList.remove("hidden");
     seat.classList.toggle("active", i === game.active);
+    seat.classList.toggle("is-current-turn", player.id === focusId);
+    seat.classList.toggle("is-my-turn", ux.online && player.id === ux.viewerSeatIndex && ux.kind === "my-turn");
+    seat.classList.toggle("is-pending-actor", pendingIds.has(player.id));
+    seat.classList.toggle("is-bot-turn", player.isBot && player.id === focusId);
+    seat.classList.toggle("is-waiting-turn", player.id !== focusId && !pendingIds.has(player.id));
     seat.style.setProperty("--player-color", player.color);
     const isViewer = !isOnlinePlaying() || player.id === game.viewerSeatIndex;
-    const isCurrent = i === game.active;
+    const statusLabel = playerStatusLabel(player, ux);
     seat.innerHTML = `
       <div class="seat-head">
         <i class="dot" style="background:${player.color}"></i>
-        <span class="seat-name">${player.name}</span>
+        <span class="seat-name">${player.name}${botBadgeHtml(player)}</span>
         <strong class="vp">${pointBadgeHtml(player, isViewer)}</strong>
       </div>
+      <small class="player-state-label">${statusLabel}</small>
       <div class="hand">
         ${isViewer ? renderResourceBreakdown(player) : renderResourceSummary(player)}
         ${renderDevSummary(player)}
@@ -3957,18 +4555,49 @@ function renderSeats() {
 
 function renderPlayers() {
   playersList.replaceChildren();
+  const ux = currentTurnUxState();
+  const focusId = ux.currentFocusPlayer?.id;
+  const pendingIds = new Set(ux.pendingActors.map((player) => player.id));
   game.players.forEach((player, index) => {
     const row = document.createElement("div");
-    row.className = `player-row ${index === game.active ? "active" : ""}`;
+    row.className = [
+      "player-row",
+      index === game.active ? "active" : "",
+      player.id === focusId ? "is-current-turn" : "",
+      ux.online && player.id === ux.viewerSeatIndex && ux.kind === "my-turn" ? "is-my-turn" : "",
+      pendingIds.has(player.id) ? "is-pending-actor" : "",
+      player.isBot && player.id === focusId ? "is-bot-turn" : "",
+      player.id !== focusId && !pendingIds.has(player.id) ? "is-waiting-turn" : ""
+    ].filter(Boolean).join(" ");
     const revealHidden = !isOnlinePlaying() ? index === game.active : player.id === game.viewerSeatIndex;
     row.innerHTML = `
       <i class="dot" style="background:${player.color}"></i>
-      <span>${player.name}</span>
+      <span>${player.name}${botBadgeHtml(player)}</span>
       <b>카드 ${resourceCount(player)}장</b>
       <strong class="score-text">${pointBadgeHtml(player, revealHidden)}</strong>
     `;
+    const status = document.createElement("small");
+    status.className = "player-state-label";
+    status.textContent = playerStatusLabel(player, ux);
+    row.append(status);
     playersList.append(row);
   });
+}
+
+function playerStatusLabel(player, ux = currentTurnUxState()) {
+  if (!player) return "대기";
+  if (ux.blocking) return player.id === ux.currentFocusPlayer?.id ? "확인 필요" : "대기";
+  if (ux.pendingActors.some((entry) => entry.id === player.id)) {
+    if (ux.online && player.id === ux.viewerSeatIndex) return "행동 필요";
+    if (player.isBot) return "봇 진행 중";
+    return "진행 중";
+  }
+  if (player.id === ux.currentFocusPlayer?.id) {
+    if (player.isBot) return "봇 진행 중";
+    if (ux.online && player.id === ux.viewerSeatIndex && ux.kind === "my-turn") return "내 차례";
+    return "진행 중";
+  }
+  return "대기";
 }
 
 function infoChip(label, value, wide = false) {
@@ -3977,12 +4606,13 @@ function infoChip(label, value, wide = false) {
 
 function renderTurnStage() {
   if (!turnStagePanel) return;
-  const [title] = guideFor();
-  const player = currentPlayer();
+  const ux = currentTurnUxState();
   turnStagePanel.innerHTML = [
-    infoChip("단계", title),
+    infoChip("상태", ux.headline, true),
+    infoChip("가능한 행동", ux.possibleAction),
+    infoChip("다음", ux.nextAction, true),
     infoChip("라운드", game.round || "-"),
-    infoChip("차례", player?.name || "-"),
+    infoChip("차례", playerDisplayName(ux.activePlayer) || "-"),
     infoChip("주사위", game.rolled ? "완료" : "대기")
   ].join("");
 }
@@ -4215,6 +4845,39 @@ function renderSessionButtons() {
   }
 }
 
+function clearPrimaryActionHints() {
+  [rollButton, endTurnButton, ...buildButtons].forEach((button) => {
+    if (!button) return;
+    button.classList.remove("is-primary-action", "is-primary-action-soft");
+    delete button.dataset.primaryAction;
+  });
+}
+
+function markPrimaryAction(button, strength = "primary") {
+  if (!button || button.disabled) return;
+  button.setAttribute("data-primary-action", strength);
+  button.classList.add(strength === "soft" ? "is-primary-action-soft" : "is-primary-action");
+}
+
+function updatePrimaryActionHints(ux = currentTurnUxState()) {
+  clearPrimaryActionHints();
+  if (ux.blocking || ux.kind === "bot-turn" || ux.kind === "waiting" || ux.kind === "pending-wait") return;
+  if (game.pendingActionView || isResolvingForcedAction() || isBusyWithCardAction()) return;
+  if (isOnlinePlayPhase() && !isMyOnlineTurn()) return;
+  if (game.phase !== "play" || game.winner !== null) return;
+
+  if (!game.rolled) {
+    markPrimaryAction(rollButton);
+    return;
+  }
+
+  const selectedButton = buildButtons.find((button) => button.dataset.action === selectedAction && !button.disabled);
+  if (selectedButton && ["road", "settlement", "city", "trade", "playerTrade", "dev", "playDev"].includes(selectedButton.dataset.action)) {
+    markPrimaryAction(selectedButton);
+  }
+  markPrimaryAction(endTurnButton, "soft");
+}
+
 function renderControls() {
   renderSessionButtons();
   buildButtons.forEach((button) => button.classList.toggle("active", button.dataset.action === selectedAction));
@@ -4224,9 +4887,11 @@ function renderControls() {
   rollButton.disabled = isOnlinePlayPhase()
     ? !canRollOnlineDice()
     : onlineLocked || game.phase !== "play" || game.rolled || isResolvingForcedAction() || isBusyWithCardAction() || game.winner !== null;
+  rollButton.title = rollButton.disabled && isOnlinePlayPhase() ? onlineTurnBlockedMessage("roll") : "";
   endTurnButton.disabled = isOnlinePlayPhase()
     ? !canEndOnlineTurn()
     : onlineLocked || game.phase !== "play" || !game.rolled || isResolvingForcedAction() || isBusyWithCardAction() || game.winner !== null;
+  endTurnButton.title = endTurnButton.disabled && isOnlinePlayPhase() ? onlineTurnBlockedMessage("endTurn") : "";
   buildButtons.forEach((button) => {
     const action = button.dataset.action;
     if (isOnlinePlayPhase()) {
@@ -4256,6 +4921,7 @@ function renderControls() {
     );
   });
   if (tradeButton) tradeButton.disabled = onlineLocked;
+  updatePrimaryActionHints();
   renderBoardZoomButton();
 }
 
@@ -4391,6 +5057,8 @@ function installTestHelpers() {
 
 function render() {
   if (!tiles.length) setupBoard();
+  const ux = currentTurnUxState();
+  updateTurnVisualHooks(ux);
   renderBoard();
   renderSeats();
   renderPlayers();
@@ -4404,8 +5072,25 @@ function render() {
   const [title, text] = guideFor();
   guideTitle.textContent = title;
   guideText.textContent = text;
-  currentPlayerLabel.textContent = currentPlayer()?.name || "플레이어";
+  if (currentPlayerLabel) {
+    currentPlayerLabel.textContent = ux.headline;
+    currentPlayerLabel.dataset.state = ux.kind;
+  }
+  dicePanel?.setAttribute("data-turn-state", ux.kind);
   updateTradeRatioLabel();
+}
+
+function updateTurnVisualHooks(ux = currentTurnUxState()) {
+  const focusColor = ux.blocking ? "#ff9f9f" : (ux.currentFocusPlayer?.color || "#f4c460");
+  [appEl, tabletop].forEach((element) => {
+    if (!element) return;
+    element.setAttribute("data-focus-state", ux.kind);
+    element.style.setProperty("--focus-player-color", focusColor);
+  });
+  if (boardArea) {
+    boardArea.setAttribute("data-focus-state", ux.kind);
+    boardArea.style.setProperty("--focus-player-color", focusColor);
+  }
 }
 
 buildButtons.forEach((button) => {
@@ -4497,6 +5182,12 @@ createRoomButton?.addEventListener("click", createOnlineRoom);
 joinRoomButton?.addEventListener("click", joinOnlineRoom);
 copyShareUrlButton?.addEventListener("click", copyShareUrl);
 lobbyStartButton?.addEventListener("click", startOnlineGame);
+lobbyAddBotButton?.addEventListener("click", addOnlineBot);
+lobbyPlayersList?.addEventListener("click", (event) => {
+  const button = event.target.closest(".lobby-remove-bot-button");
+  if (!button) return;
+  removeOnlineBot(button.dataset.botPlayerId);
+});
 leaveLobbyButton?.addEventListener("click", () => {
   confirmLeaveOnlineRoom();
 });
