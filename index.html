@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>카탄</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app" aria-label="카탄 오리지널">
+<section id="setupScreen" class="setup-screen">
+        <div class="setup-box setup-view" id="modeSelectView">
+          <p class="eyebrow">Original Rules</p>
+          <h1>카탄</h1>
+          <div class="mode-actions" aria-label="게임 모드 선택">
+            <button id="offlineModeButton" type="button">오프라인 게임</button>
+            <button id="onlineCreateModeButton" type="button">온라인 방 만들기</button>
+            <button id="onlineJoinModeButton" type="button">온라인 방 참가하기</button>
+          </div>
+          <p class="setup-note">같은 네트워크에서 방을 만들고 참가자 목록을 함께 확인할 수 있습니다.</p>
+        </div>
+
+        <div class="setup-box setup-view hidden" id="offlineSetupView">
+          <p class="eyebrow">Original Rules</p>
+          <h1>카탄</h1>
+          <label class="field">
+            <span>플레이어 수</span>
+            <select id="playerCount">
+              <option value="3">3명</option>
+              <option value="4" selected>4명</option>
+            </select>
+          </label>
+          <div id="nameFields" class="name-fields"></div>
+          <button id="startGameButton" type="button">게임 시작</button>
+          <button class="secondary-button" id="backToModeFromOffline" type="button">모드 선택으로</button>
+        </div>
+
+        <div class="setup-box setup-view hidden" id="onlineCreateView">
+          <p class="eyebrow">Online</p>
+          <h1>방 만들기</h1>
+          <label class="field">
+            <span>닉네임</span>
+            <input id="createNickname" maxlength="24" autocomplete="nickname" placeholder="예: 민수">
+          </label>
+          <button id="createRoomButton" type="button">방 만들기</button>
+          <button class="secondary-button" id="backToModeFromCreate" type="button">모드 선택으로</button>
+          <p class="online-status" id="createStatus" role="status"></p>
+        </div>
+
+        <div class="setup-box setup-view hidden" id="onlineJoinView">
+          <p class="eyebrow">Online</p>
+          <h1>방 참가</h1>
+          <label class="field">
+            <span>방 코드</span>
+            <input id="joinRoomCode" maxlength="12" autocomplete="off" placeholder="abc123">
+          </label>
+          <label class="field">
+            <span>닉네임</span>
+            <input id="joinNickname" maxlength="24" autocomplete="nickname" placeholder="예: 지우">
+          </label>
+          <button id="joinRoomButton" type="button">참가하기</button>
+          <button class="secondary-button" id="backToModeFromJoin" type="button">모드 선택으로</button>
+          <p class="online-status" id="joinStatus" role="status"></p>
+        </div>
+
+        <div class="setup-box setup-view online-lobby hidden" id="onlineLobbyView">
+          <div class="lobby-head">
+            <div>
+              <p class="eyebrow">Online Lobby</p>
+              <h1>대기실</h1>
+            </div>
+            <span id="lobbyConnectionBadge" class="connection-badge">연결 대기</span>
+          </div>
+          <div class="lobby-meta">
+            <div>
+              <span>방 코드</span>
+              <strong id="lobbyRoomCode">-</strong>
+            </div>
+            <div>
+              <span>내 정보</span>
+              <strong id="lobbyMeLabel">-</strong>
+            </div>
+          </div>
+          <div class="share-panel">
+            <label class="field">
+              <span>공유 URL</span>
+              <select id="shareUrlSelect"></select>
+            </label>
+            <button id="copyShareUrlButton" type="button">복사</button>
+          </div>
+          <p class="online-status" id="copyStatus" role="status"></p>
+          <section class="lobby-section" aria-label="참가자 목록">
+            <div class="lobby-section-title">
+              <span>참가자</span>
+              <strong id="lobbyPlayerCount">0/4</strong>
+            </div>
+            <div id="lobbyPlayersList" class="lobby-players"></div>
+          </section>
+          <button id="lobbyStartButton" class="future-button" type="button" disabled>게임 시작</button>
+          <p class="setup-note" id="lobbyStartHint">게임 시작은 다음 단계에서 구현합니다.</p>
+          <button class="secondary-button" id="leaveLobbyButton" type="button">나가기</button>
+        </div>
+      </section>
+
+      <section class="tabletop">
+        <section class="table-cost-card" id="costReferenceCard" aria-label="비용표">
+          <div class="cost-card-head" id="costReferenceHandle">
+            <span class="section-title">비용표</span>
+            <span class="drag-hint">drag</span>
+          </div>
+          <div id="costReferencePanel" class="cost-list"></div>
+        </section>
+
+        <div id="seat0" class="seat seat-top"></div>
+        <div id="seat1" class="seat seat-right"></div>
+        <div id="seat2" class="seat seat-bottom"></div>
+        <div id="seat3" class="seat seat-left"></div>
+
+        <section class="board-area">
+          <header class="top-bar">
+            <div>
+              <p class="eyebrow">CATAN Base Game</p>
+              <h1>카탄</h1>
+            </div>
+            <div class="dice-panel" id="dicePanel">
+              <span id="currentPlayerLabel">플레이어</span>
+              <div class="dice-readout" aria-label="주사위 결과">
+                <strong id="dieOne" class="die-face">-</strong>
+                <strong id="dieTwo" class="die-face">-</strong>
+                <span class="dice-sum">합계 <b id="diceTotal">-</b></span>
+              </div>
+              <button id="rollButton" type="button">주사위</button>
+            </div>
+          </header>
+          <div class="board-wrap">
+            <svg id="board" viewBox="-60 -55 880 760" role="img" aria-label="카탄 보드"></svg>
+          </div>
+          <button id="boardZoomButton" class="board-zoom-button" type="button">확대 보기</button>
+        </section>
+      </section>
+
+      <aside class="control-panel">
+        <section class="panel-block guide">
+          <span class="section-title">이번 차례</span>
+          <strong id="guideTitle">대기 중</strong>
+          <p id="guideText">3~4명 닉네임을 입력하고 게임을 시작하세요.</p>
+        </section>
+
+        <section class="panel-block">
+          <span class="section-title">행동</span>
+          <div class="build-actions">
+            <button type="button" data-action="road">도로</button>
+            <button type="button" data-action="settlement">마을</button>
+            <button type="button" data-action="city">도시</button>
+            <button type="button" data-action="dev">개발 카드</button>
+            <button type="button" data-action="playDev">카드 사용</button>
+            <button type="button" data-action="trade">교환</button>
+            <button type="button" data-action="playerTrade">플레이어 교환</button>
+          </div>
+          <button id="endTurnButton" class="wide-button" type="button">턴 넘기기</button>
+          <button id="newGameButton" class="wide-button muted" type="button">새 게임</button>
+        </section>
+
+        <section class="panel-block">
+          <span class="section-title">플레이어</span>
+          <div id="playersList" class="players-list"></div>
+        </section>
+
+        <section class="panel-block">
+          <span class="section-title">턴 상태</span>
+          <div id="turnStagePanel" class="info-grid"></div>
+        </section>
+
+        <section class="panel-block">
+          <span class="section-title">현재 카드</span>
+          <div id="devCardPanel" class="info-grid"></div>
+        </section>
+
+        <section class="panel-block">
+          <span class="section-title">은행 재고</span>
+          <div id="bankStockPanel" class="info-grid"></div>
+        </section>
+
+        <section class="panel-block">
+          <span class="section-title">보유 항구</span>
+          <div id="harborPanel" class="info-grid"></div>
+        </section>
+
+        <section class="panel-block log-block">
+          <span class="section-title">기록</span>
+          <ol id="log" class="log"></ol>
+        </section>
+      </aside>
+
+      <section id="modalOverlay" class="modal-overlay hidden" aria-modal="true" role="dialog">
+        <div class="modal-box">
+          <h2 id="modalTitle"></h2>
+          <p id="modalText"></p>
+          <div id="modalContent" class="modal-content"></div>
+          <div id="modalActions" class="modal-actions"></div>
+        </div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>

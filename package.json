@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "open": "node start-katan.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.17.1"
+  }
+}
