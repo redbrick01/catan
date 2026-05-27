@@ -106,31 +106,22 @@
       </section>
 
       <section class="tabletop">
-        <section class="table-cost-card" id="costReferenceCard" aria-label="비용표">
-          <div class="cost-card-head" id="costReferenceHandle">
-            <span class="section-title">비용표</span>
-            <span class="drag-hint">drag</span>
-          </div>
-          <div id="costReferencePanel" class="cost-list"></div>
-        </section>
-
-        <div id="seat0" class="seat seat-top"></div>
-        <div id="seat1" class="seat seat-right"></div>
-        <div id="seat2" class="seat seat-bottom"></div>
-        <div id="seat3" class="seat seat-left"></div>
+        <div class="board-player-strip" aria-label="플레이어 상태">
+          <div id="seat0" class="seat seat-top"></div>
+          <div id="seat1" class="seat seat-right"></div>
+          <div id="seat2" class="seat seat-bottom"></div>
+          <div id="seat3" class="seat seat-left"></div>
+        </div>
 
         <section class="board-area">
           <header class="top-bar">
-            <div>
-              <p class="eyebrow">CATAN Base Game</p>
-              <h1>카탄</h1>
-            </div>
             <div class="dice-panel" id="dicePanel">
               <span id="currentPlayerLabel">플레이어</span>
               <div class="dice-readout" aria-label="주사위 결과">
                 <strong id="dieOne" class="die-face">-</strong>
+                <span class="dice-operator" aria-hidden="true">+</span>
                 <strong id="dieTwo" class="die-face">-</strong>
-                <span class="dice-sum">합계 <b id="diceTotal">-</b></span>
+                <span class="dice-total-group" aria-label="합계"><span class="dice-operator" aria-hidden="true">=</span><b id="diceTotal" class="die-face dice-total-card">-</b></span>
               </div>
               <button id="rollButton" type="button">주사위</button>
             </div>
@@ -140,16 +131,41 @@
           </div>
           <button id="boardZoomButton" class="board-zoom-button" type="button">확대 보기</button>
         </section>
+
+        <section id="playerHandDock" class="player-hand-dock hidden" aria-label="내 자원 손패">
+          <div class="player-hand-head">
+            <span class="section-title">내 카드</span>
+            <strong id="playerHandOwner" class="player-hand-owner">-</strong>
+            <button id="playerHandToggle" class="player-hand-toggle" type="button" aria-expanded="false" aria-controls="playerResourceHand">펼치기</button>
+          </div>
+          <div id="playerResourceHand" class="hand-card-row" role="list"></div>
+        </section>
       </section>
 
       <aside class="control-panel">
-        <section class="panel-block guide">
-          <span class="section-title">이번 차례</span>
+        <section class="panel-block landscape-player-panel" id="landscapePlayerPanel" aria-label="플레이어 상태">
+          <span class="section-title">플레이어</span>
+          <div id="landscapePlayerStripMount"></div>
+        </section>
+
+        <section class="panel-block landscape-dice-panel" id="landscapeDicePanel" aria-label="주사위">
+          <span class="section-title">주사위</span>
+          <div id="landscapeDiceMount"></div>
+        </section>
+
+        <section class="panel-block guide action-notice-panel" id="actionNoticePanel">
+          <div class="action-notice-head">
+            <span class="section-title">행동 알림</span>
+            <div class="action-notice-nav" aria-label="행동 알림 내역">
+              <button id="actionNoticePrev" type="button" aria-label="이전 행동 알림"></button>
+              <button id="actionNoticeNext" type="button" aria-label="다음 행동 알림"></button>
+            </div>
+          </div>
           <strong id="guideTitle">대기 중</strong>
           <p id="guideText">3~4명 닉네임을 입력하고 게임을 시작하세요.</p>
         </section>
 
-        <section class="panel-block">
+        <section class="panel-block action-panel">
           <span class="section-title">행동</span>
           <div class="build-actions">
             <button type="button" data-action="road">도로</button>
@@ -162,21 +178,24 @@
           </div>
           <button id="endTurnButton" class="wide-button" type="button">턴 넘기기</button>
           <button id="newGameButton" class="wide-button muted" type="button">새 게임</button>
+          <button id="feelSettingsButton" class="wide-button muted" type="button">효과 설정</button>
         </section>
 
-        <section class="panel-block">
+        <section class="panel-block table-cost-card" id="costReferenceCard" aria-label="비용표">
+          <div class="cost-card-head" id="costReferenceHandle">
+            <span class="section-title">비용표</span>
+          </div>
+          <div id="costReferencePanel" class="cost-list"></div>
+        </section>
+
+        <section class="panel-block players-panel">
           <span class="section-title">플레이어</span>
           <div id="playersList" class="players-list"></div>
         </section>
 
         <section class="panel-block">
-          <span class="section-title">턴 상태</span>
+          <span class="section-title">라운드</span>
           <div id="turnStagePanel" class="info-grid"></div>
-        </section>
-
-        <section class="panel-block">
-          <span class="section-title">현재 카드</span>
-          <div id="devCardPanel" class="info-grid"></div>
         </section>
 
         <section class="panel-block">
@@ -189,10 +208,7 @@
           <div id="harborPanel" class="info-grid"></div>
         </section>
 
-        <section class="panel-block log-block">
-          <span class="section-title">기록</span>
-          <ol id="log" class="log"></ol>
-        </section>
+        <ol id="log" class="log hidden" aria-hidden="true"></ol>
       </aside>
 
       <section id="modalOverlay" class="modal-overlay hidden" aria-modal="true" role="dialog">

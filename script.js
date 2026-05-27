@@ -2,24 +2,49 @@ const svg = document.querySelector("#board");
 const appEl = document.querySelector(".app");
 const tabletop = document.querySelector(".tabletop");
 const boardArea = document.querySelector(".board-area");
+const topBar = document.querySelector(".top-bar");
+const boardPlayerStrip = document.querySelector(".board-player-strip");
+const landscapePlayerStripMount = document.querySelector("#landscapePlayerStripMount");
+const landscapeDiceMount = document.querySelector("#landscapeDiceMount");
 const setupScreen = document.querySelector("#setupScreen");
 const playerCount = document.querySelector("#playerCount");
 const nameFields = document.querySelector("#nameFields");
 const startGameButton = document.querySelector("#startGameButton");
 const rollButton = document.querySelector("#rollButton");
+const diceHoldGauge = (() => {
+  const existing = document.querySelector("#diceHoldGauge");
+  if (existing) return existing;
+  if (!rollButton?.parentElement) return null;
+  const gauge = document.createElement("span");
+  gauge.id = "diceHoldGauge";
+  gauge.className = "dice-hold-gauge";
+  gauge.setAttribute("aria-hidden", "true");
+  gauge.innerHTML = '<span class="dice-hold-gauge-fill"></span>';
+  rollButton.parentElement.insertBefore(gauge, rollButton);
+  return gauge;
+})();
 const endTurnButton = document.querySelector("#endTurnButton");
 const newGameButton = document.querySelector("#newGameButton");
+const feelSettingsButton = document.querySelector("#feelSettingsButton");
 const dicePanel = document.querySelector("#dicePanel");
 const dieOne = document.querySelector("#dieOne");
 const dieTwo = document.querySelector("#dieTwo");
 const diceTotal = document.querySelector("#diceTotal");
 const currentPlayerLabel = document.querySelector("#currentPlayerLabel");
+const actionNoticePanel = document.querySelector("#actionNoticePanel");
+const actionNoticePrev = document.querySelector("#actionNoticePrev");
+const actionNoticeNext = document.querySelector("#actionNoticeNext");
 const guideTitle = document.querySelector("#guideTitle");
 const guideText = document.querySelector("#guideText");
 const playersList = document.querySelector("#playersList");
+const playersPanel = playersList?.closest(".panel-block");
 const turnStagePanel = document.querySelector("#turnStagePanel");
 const devCardPanel = document.querySelector("#devCardPanel");
 const bankStockPanel = document.querySelector("#bankStockPanel");
+const playerHandDock = document.querySelector("#playerHandDock");
+const playerResourceHand = document.querySelector("#playerResourceHand");
+const playerHandOwner = document.querySelector("#playerHandOwner");
+const playerHandToggle = document.querySelector("#playerHandToggle");
 const costReferenceCard = document.querySelector("#costReferenceCard");
 const costReferenceHandle = document.querySelector("#costReferenceHandle");
 const costReferencePanel = document.querySelector("#costReferencePanel");
@@ -76,11 +101,93 @@ const SIZE = 72;
 const CENTER = { x: 380, y: 320 };
 const COLORS = ["#3fa7d6", "#e45757", "#f4f0e6", "#ee8c42"];
 const RESOURCES = {
-  forest: { name: "목재", icon: "🌲" },
-  field: { name: "곡물", icon: "🌾" },
-  pasture: { name: "양모", icon: "🐑" },
-  hill: { name: "벽돌", icon: "🧱" },
-  mountain: { name: "광석", icon: "⛏" }
+  forest: { name: "목재" },
+  field: { name: "곡물" },
+  pasture: { name: "가죽" },
+  hill: { name: "벽돌" },
+  mountain: { name: "광석" }
+};
+// Inline Tabler Icons paths, MIT license: https://tabler.io/icons
+const TABLER_ICON_PATHS = {
+  "alert-triangle": '<path d="M12 9v4m-1.637-9.409L2.257 17.125a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636-2.87L13.637 3.59a1.914 1.914 0 0 0-3.274 0M12 16h.01"/>',
+  "building-community": '<path d="m8 9l5 5v7H8v-4m0 4H3v-7l5-5m1 1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17h-8m0-14v.01M17 7v.01M17 11v.01M17 15v.01"/>',
+  "chevron-left": '<path d="m15 6l-6 6l6 6"/>',
+  "chevron-right": '<path d="m9 6l6 6l-6 6"/>',
+  clock: '<path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0-18 0"/><path d="M12 7v5l3 3"/>',
+  crown: '<path d="m12 6l4 6l5 -4l-2 10H5L3 8l5 4z"/><path d="M5 21h14"/>',
+  dice: '<path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path fill="currentColor" stroke="none" d="M8 8.5a.5.5 0 1 0 1 0a.5.5 0 1 0-1 0m7 7a.5.5 0 1 0 1 0a.5.5 0 1 0-1 0M11.5 12a.5.5 0 1 0 1 0a.5.5 0 1 0-1 0"/>',
+  exchange: '<path d="M3 18a2 2 0 1 0 4 0a2 2 0 1 0-4 0M17 6a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/><path d="M19 8v5a5 5 0 0 1-5 5h-3l3-3m0 6l-3-3m-6-2v-5a5 5 0 0 1 5-5h3l-3-3m0 6l3-3"/>',
+  home: '<path d="M5 12H3l9-9l9 9h-2M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M9 21v-6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6"/>',
+  mask: '<path d="M9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0"/><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/>',
+  mountain: '<path d="M3 20h18L14.079 5.388a2.3 2.3 0 0 0-4.158 0z"/><path d="m7.5 11l2 2.5L12 11l2 3l2.5-2"/>',
+  package: '<path d="m12 3l8 4.5v9L12 21l-8-4.5v-9zm0 9l8-4.5M12 12v9m0-9L4 7.5m12-2.25l-8 4.5"/>',
+  pick: '<path d="m13 8l-9.383 9.418a2.09 2.09 0 0 0 0 2.967a2.11 2.11 0 0 0 2.976 0L16 11"/><path d="M9 3h4.586a1 1 0 0 1 .707.293l6.414 6.414a1 1 0 0 1 .293.707V15a2 2 0 1 1-4 0v-3l-5-5H9a2 2 0 1 1 0-4"/>',
+  "play-card": '<path d="M19 5v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2M8 6h.01M16 18h.01"/><path d="m12 16l-3-4l3-4l3 4z"/>',
+  "refresh-alert": '<path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4m-4 4a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4m-4-6v3m0 3h.01"/>',
+  "robot-face": '<path d="M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2"/><path d="M9 16q1.5 1 3 1c1.5 0 2-.333 3-1M9 7L8 3m7 4l1-4m-7 9v-1m6 1v-1"/>',
+  route: '<path d="M3 19a2 2 0 1 0 4 0a2 2 0 0 0-4 0M19 7a2 2 0 1 0 0-4a2 2 0 0 0 0 4m-8 12h5.5a3.5 3.5 0 0 0 0-7h-8a3.5 3.5 0 0 1 0-7H13"/>',
+  shield: '<path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1-8.5 15A12 12 0 0 1 3.5 6A12 12 0 0 0 12 3"/><path d="M12 9v4m0 3h.01"/>',
+  paw: '<path d="M14.7 13.5c-1.1 -2 -1.441 -2.5 -2.7 -2.5c-1.259 0 -1.736 .755 -2.836 2.747c-.942 1.703 -2.846 1.845 -3.321 3.291c-.097 .265 -.145 .677 -.143 .962c0 1.176 .787 2 1.8 2c1.259 0 3 -1 4.5 -1s3.241 1 4.5 1c1.013 0 1.8 -.823 1.8 -2c0 -.285 -.049 -.697 -.146 -.962c-.475 -1.451 -2.512 -1.835 -3.454 -3.538" /><path d="M20.188 8.082a1.039 1.039 0 0 0 -.406 -.082h-.015c-.735 .012 -1.56 .75 -1.993 1.866c-.519 1.335 -.28 2.7 .538 3.052c.129 .055 .267 .082 .406 .082c.739 0 1.575 -.742 2.011 -1.866c.516 -1.335 .273 -2.7 -.54 -3.052l-.001 0" /><path d="M9.474 9c.055 0 .109 0 .163 -.011c.944 -.128 1.533 -1.346 1.32 -2.722c-.203 -1.297 -1.047 -2.267 -1.932 -2.267c-.055 0 -.109 0 -.163 .011c-.944 .128 -1.533 1.346 -1.32 2.722c.204 1.293 1.048 2.267 1.933 2.267" /><path d="M16.456 6.733c.214 -1.376 -.375 -2.594 -1.32 -2.722a1.164 1.164 0 0 0 -.162 -.011c-.885 0 -1.728 .97 -1.93 2.267c-.214 1.376 .375 2.594 1.32 2.722c.054 .007 .108 .011 .162 .011c.885 0 1.73 -.974 1.93 -2.267" /><path d="M5.69 12.918c.816 -.352 1.054 -1.719 .536 -3.052c-.436 -1.124 -1.271 -1.866 -2.009 -1.866c-.14 0 -.277 .027 -.407 .082c-.816 .352 -1.054 1.719 -.536 3.052c.436 1.124 1.271 1.866 2.009 1.866c.14 0 .277 -.027 .407 -.082" />',
+  shirt: '<path d="m15 4l6 2v5h-3v8a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-8H3V6l6-2a3 3 0 0 0 6 0"/>',
+  trophy: '<path d="M8 21h8m-4-4v4M7 4h10m0 0v8a5 5 0 0 1-10 0V4M3 9a2 2 0 1 0 4 0a2 2 0 1 0-4 0m14 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"/>',
+  urgent: '<path d="M8 16v-4a4 4 0 0 1 8 0v4M3 12h1m8-9v1m8 8h1M5.6 5.6l.7.7m12.1-.7l-.7.7M6 17a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1z"/>',
+  "user-check": '<path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0-8 0M6 21v-2a4 4 0 0 1 4-4h4m1 4l2 2l4-4"/>',
+  wheat: '<path d="M12.014 21.514v-3.75M5.93 9.504l-.43 1.604a4.986 4.986 0 0 0 3.524 6.105q1.495.402 2.99.801v-3.44a4.98 4.98 0 0 0-3.676-4.426z"/><path d="M13.744 11.164a4.9 4.9 0 0 0 1.433-3.46a4.88 4.88 0 0 0-1.433-3.46l-1.73-1.73l-1.73 1.73a4.9 4.9 0 0 0-1.433 3.46a4.9 4.9 0 0 0 1.433 3.46"/><path d="m18.099 9.504l.43 1.604a4.986 4.986 0 0 1-3.525 6.105l-2.99.801v-3.44a4.98 4.98 0 0 1 3.677-4.426z"/>',
+  wall: '<path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm0 2h16m0 4H4m0 4h16M9 4v4m5 0v4m-6 0v4m8-4v4m-5 0v4"/>',
+  wood: '<path d="M6 5.5a6 2.5 0 1 0 12 0a6 2.5 0 1 0-12 0"/><path d="M18 5.5v4.626a1.415 1.415 0 0 1 1.683 2.18l-.097.108L18 14v4c0 1.61-2.54 2.925-5.725 3H12c-3.314 0-6-1.343-6-3v-2l-1.586-1.586A1.414 1.414 0 0 1 6 12.127V5.5m4 7V14m4 2v1"/>'
+};
+const ICON_TOKENS = {
+  resource: {
+    forest: { icon: "wood", label: RESOURCES.forest.name },
+    field: { icon: "wheat", label: RESOURCES.field.name },
+    pasture: { icon: "paw", label: RESOURCES.pasture.name },
+    hill: { icon: "wall", label: RESOURCES.hill.name },
+    mountain: { icon: "pick", label: RESOURCES.mountain.name },
+    generic: { icon: "package", label: "자원" }
+  },
+  action: {
+    road: { icon: "route", label: "도로" },
+    settlement: { icon: "home", label: "마을" },
+    city: { icon: "building-community", label: "도시" },
+    devCard: { icon: "play-card", label: "개발 카드" },
+    trade: { icon: "exchange", label: "교환" },
+    dice: { icon: "dice", label: "주사위" },
+    robber: { icon: "mask", label: "도둑" }
+  },
+  status: {
+    myTurn: { icon: "user-check", label: "내 차례" },
+    pending: { icon: "urgent", label: "행동 필요" },
+    connection: { icon: "refresh-alert", label: "연결/재접속" },
+    error: { icon: "alert-triangle", label: "오류/경고" },
+    victory: { icon: "trophy", label: "승리" },
+    waiting: { icon: "clock", label: "대기" },
+    bot: { icon: "robot-face", label: "봇" }
+  }
+};
+const ACTION_ICON_BY_BUTTON = {
+  road: "road",
+  settlement: "settlement",
+  city: "city",
+  dev: "devCard",
+  playDev: "devCard",
+  trade: "trade",
+  playerTrade: "trade"
+};
+const ACTION_LABEL_BY_BUTTON = {
+  road: "도로",
+  settlement: "마을",
+  city: "도시",
+  dev: "개발 카드",
+  playDev: "카드 사용",
+  trade: "교환",
+  playerTrade: "플레이어 교환"
+};
+const DEV_CARD_ICON_BY_TYPE = {
+  knight: "shield",
+  victory: "trophy",
+  roadBuilding: "route",
+  yearPlenty: "wheat",
+  monopoly: "crown"
 };
 const STARTING_BANK_RESOURCES = Object.fromEntries(Object.keys(RESOURCES).map((type) => [type, 19]));
 const NUMBER_TOKENS = [5, 2, 6, 3, 8, 10, 9, 12, 11, 4, 8, 10, 9, 4, 5, 6, 3, 11];
@@ -154,11 +261,531 @@ const onlineSession = {
   lastRobberResultId: null,
   playLogRoomId: null,
   noticeQueue: [],
-  activeNoticeKey: null
+  activeNoticeKey: null,
+  diceRollPending: false
 };
+let shownVictoryModalKey = null;
 const ONLINE_IDENTITY_KEY = "catanOnlineIdentity";
 const REQUEST_TIMEOUT_MS = 8000;
-const MOBILE_VIEWPORT_QUERY = "(max-width: 780px)";
+const MOBILE_VIEWPORT_QUERY = "(max-width: 780px) and (orientation: portrait)";
+const LANDSCAPE_PANEL_QUERY = "(max-width: 1150px) and (orientation: landscape)";
+const FEEL_SETTINGS_STORAGE_KEY = "katanFeelSettings";
+const DEFAULT_FEEL_SETTINGS = {
+  schemaVersion: 1,
+  motionMode: "auto",
+  soundEnabled: false,
+  soundVolume: 60,
+  turnSoundEnabled: true,
+  importantEventSoundEnabled: true,
+  turnEmphasis: "normal",
+  importantEventEmphasis: true
+};
+const SOUND_EVENT_MAP = {
+  turnChanged: { asset: "turn-bell", category: "turn", volumeScale: 0.82, setting: "turnSoundEnabled" },
+  diceRolled: { asset: "dice-roll", category: "dice", volumeScale: 0.9 },
+  resourcesProduced: { asset: "resource-gain", category: "resource", volumeScale: 0.86 },
+  blockedProduction: { asset: "blocked-soft", category: "alert", volumeScale: 0.78 },
+  buildCompleted: { asset: "build-success", category: "action", volumeScale: 0.9 },
+  bankTradeCompleted: { asset: "trade-success", category: "action", volumeScale: 0.86 },
+  playerTradeCompleted: { asset: "trade-success", category: "action", volumeScale: 0.86 },
+  devCardBought: { asset: "card-flip", category: "card", volumeScale: 0.82 },
+  devCardPlayed: { asset: "card-play", category: "card", volumeScale: 0.9 },
+  sevenRolled: { asset: "robber-alert", category: "alert", volumeScale: 1, setting: "importantEventSoundEnabled" },
+  discardPendingStarted: { asset: "robber-alert", category: "alert", volumeScale: 0.72, setting: "importantEventSoundEnabled" },
+  robberMovePendingStarted: { asset: "robber-alert", category: "alert", volumeScale: 0.72, setting: "importantEventSoundEnabled" },
+  robberVictimPendingStarted: { asset: "robber-alert", category: "alert", volumeScale: 0.72, setting: "importantEventSoundEnabled" },
+  robberMoved: { asset: "robber-move", category: "robber", volumeScale: 0.86, setting: "importantEventSoundEnabled" },
+  robberResult: { asset: "robber-result", category: "robber", volumeScale: 0.9, setting: "importantEventSoundEnabled" },
+  winnerDeclared: { asset: "win-fanfare", category: "victory", volumeScale: 1, setting: "importantEventSoundEnabled" },
+  commandRejected: { asset: "error-soft", category: "error", volumeScale: 0.75, setting: "importantEventSoundEnabled" }
+};
+const SOUND_ASSET_KEYS = [
+  "turn-bell",
+  "dice-roll",
+  "dice-release",
+  "dice-settle",
+  "resource-gain",
+  "card-gain",
+  "build-success",
+  "trade-success",
+  "card-flip",
+  "card-play",
+  "robber-alert",
+  "robber-move",
+  "robber-result",
+  "blocked-soft",
+  "error-soft",
+  "win-fanfare"
+];
+const SOUND_ASSET_MANIFEST = {
+  "dice-roll": "assets/audio/dice/dice-10.wav",
+  "dice-release": "assets/audio/dice/dice-11.wav",
+  "dice-settle": "assets/audio/dice/dice-4.wav"
+};
+
+let offlineActionCounter = 0;
+let offlineCueScopeId = `offline-${Date.now().toString(36)}`;
+const responsivePanelRuntime = {
+  playerStripHome: null,
+  dicePanelHome: null,
+  movedToLandscapePanel: false
+};
+const actionNoticeRuntime = {
+  key: null,
+  title: "",
+  text: "",
+  timeoutId: null,
+  history: [],
+  index: -1,
+  maxHistory: 20
+};
+let activeScoreTooltipPlayerId = null;
+const rollHoldState = {
+  pointerId: null,
+  startedAt: 0,
+  lastHoldMs: 0,
+  lastStartedAt: 0,
+  awaitingClick: false,
+  releaseCleanupTimer: null,
+  motionState: "idle"
+};
+const diceTotalRevealState = {
+  rollKey: "",
+  visible: false,
+  settlePlayed: false,
+  cueEmitted: false,
+  timer: null
+};
+const audioRuntime = {
+  context: null,
+  unlocked: false,
+  ready: false,
+  backend: "none",
+  loadedAssets: {},
+  activeSounds: {},
+  lastError: null
+};
+const actionFeedbackRuntime = {
+  recent: new Map(),
+  ttlMs: 900
+};
+let playerHandExpanded = false;
+let playerHandMetricFrame = null;
+
+// FEEL-000 foundation: shared cue helpers for visual, sound, log, and toast feedback.
+const feelCueRuntime = {
+  playedCueKeys: new Map(),
+  maxPlayedKeys: 500,
+  hydrateSuppression: new Map()
+};
+
+function makeCueKey(scopeId, revision, eventType, entityId = "global", detailKey = "default") {
+  return [scopeId, revision, eventType, entityId, detailKey]
+    .map((part) => String(part ?? "none").replace(/\s+/g, "_"))
+    .join(":");
+}
+
+function makeCueScopeId() {
+  return onlineSession?.roomId || offlineCueScopeId;
+}
+
+function resetOfflineCueScope() {
+  offlineActionCounter = 0;
+  offlineCueScopeId = `offline-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  resetPlayedCueKeys();
+}
+
+function nextOfflineCueRevision() {
+  offlineActionCounter += 1;
+  return offlineActionCounter;
+}
+
+function resetPlayedCueKeys(scopeId = null) {
+  if (!scopeId) {
+    feelCueRuntime.playedCueKeys.clear();
+    return;
+  }
+  const prefix = `${scopeId}:`;
+  [...feelCueRuntime.playedCueKeys.keys()]
+    .filter((key) => key.startsWith(prefix))
+    .forEach((key) => feelCueRuntime.playedCueKeys.delete(key));
+}
+
+function hasPlayedCue(key) {
+  return feelCueRuntime.playedCueKeys.has(key);
+}
+
+function markCuePlayed(key, result = {}) {
+  feelCueRuntime.playedCueKeys.set(key, {
+    result,
+    playedAt: Date.now()
+  });
+  while (feelCueRuntime.playedCueKeys.size > feelCueRuntime.maxPlayedKeys) {
+    const firstKey = feelCueRuntime.playedCueKeys.keys().next().value;
+    feelCueRuntime.playedCueKeys.delete(firstKey);
+  }
+}
+
+function suppressHydrateCueScope(scopeId, revision) {
+  if (!scopeId) return;
+  feelCueRuntime.hydrateSuppression.set(scopeId, Number(revision) || 0);
+}
+
+function isHydrateCueSuppressed(scopeId, revision) {
+  if (!scopeId) return false;
+  const suppressedRevision = feelCueRuntime.hydrateSuppression.get(scopeId);
+  return Number.isFinite(suppressedRevision) && Number(revision) <= suppressedRevision;
+}
+
+function makeRawCueCandidate(type, data = {}) {
+  const scopeId = data.scopeId || makeCueScopeId();
+  const revision = Number(data.revision ?? onlineSession?.revision ?? offlineActionCounter);
+  const entityId = data.entityId ?? data.seatIndex ?? "global";
+  const detailKey = data.detailKey ?? "default";
+  return {
+    type,
+    eventType: data.eventType || type,
+    scopeId,
+    revision,
+    entityId,
+    detailKey,
+    visibility: data.visibility || "public",
+    viewerRole: data.viewerRole || null,
+    source: data.source || "stateDelta",
+    debugLabel: data.debugLabel || type,
+    payload: data.payload || {},
+    channels: {
+      visual: data.channels?.visual !== false,
+      sound: Boolean(data.channels?.sound),
+      log: Boolean(data.channels?.log),
+      toast: Boolean(data.channels?.toast)
+    }
+  };
+}
+
+function sanitizeCueForViewer(rawCue, viewerState = {}) {
+  if (!rawCue) return null;
+  const viewerSeatIndex = viewerState.viewerSeatIndex ?? game.viewerSeatIndex ?? null;
+  const cue = {
+    ...rawCue,
+    payload: { ...(rawCue.payload || {}) },
+    channels: { ...(rawCue.channels || {}) }
+  };
+
+  if (cue.visibility === "viewerOnly" && cue.payload.viewerSeatIndex !== viewerSeatIndex) {
+    return null;
+  }
+
+  if (cue.type === "resourcesProduced" && cue.payload.seatIndex !== viewerSeatIndex) {
+    delete cue.payload.resourceType;
+    delete cue.payload.resourceTypes;
+    cue.payload.cardDelta = Number(cue.payload.cardDelta ?? cue.payload.amount ?? 0);
+  }
+
+  if (cue.type === "robberResult") {
+    const canSeeResource = viewerSeatIndex === cue.payload.actorSeatIndex || viewerSeatIndex === cue.payload.victimSeatIndex;
+    cue.viewerRole = canSeeResource
+      ? (viewerSeatIndex === cue.payload.actorSeatIndex ? "actor" : "victim")
+      : "observer";
+    if (!canSeeResource) {
+      delete cue.payload.resourceType;
+      cue.payload.generic = true;
+    }
+  }
+
+  if (cue.type === "devCardBought") {
+    delete cue.payload.cardType;
+    delete cue.payload.devCardType;
+    cue.payload.cardDelta = Number(cue.payload.cardDelta ?? 1);
+  }
+
+  cue.key = cue.key || makeCueKey(cue.scopeId, cue.revision, cue.eventType || cue.type, cue.entityId, cue.detailKey);
+  return cue;
+}
+
+function shouldPlayCue(cue, settings = DEFAULT_FEEL_SETTINGS, viewerState = {}) {
+  if (!cue?.key) return false;
+  if (hasPlayedCue(cue.key)) return false;
+  if (viewerState.isHydrating || isHydrateCueSuppressed(cue.scopeId, cue.revision)) return false;
+  return true;
+}
+
+function runCueChannel(channel, cue) {
+  try {
+    if (channel === "visual") return "skipped";
+    if (channel === "sound") return playSoundCue(cue);
+    if (channel === "log" && cue.payload?.logText) {
+      addLog(cue.payload.logText, cue.payload.logType || "system");
+      return "played";
+    }
+    if (channel === "toast") return "skipped";
+    return "skipped";
+  } catch (error) {
+    return "failed";
+  }
+}
+
+function emitGameCue(rawCue, options = {}) {
+  const viewerState = {
+    viewerSeatIndex: game.viewerSeatIndex,
+    isHydrating: Boolean(options.isHydrating),
+    ...(options.viewerState || {})
+  };
+  const cue = sanitizeCueForViewer(rawCue, viewerState);
+  if (!cue) return { played: false, reason: "not-visible" };
+  if (!shouldPlayCue(cue, options.settings || DEFAULT_FEEL_SETTINGS, viewerState)) {
+    return { played: false, reason: "suppressed", key: cue.key };
+  }
+  const result = {};
+  ["visual", "sound", "log", "toast"].forEach((channel) => {
+    if (!cue.channels?.[channel]) {
+      result[channel] = "skipped";
+      return;
+    }
+    result[channel] = runCueChannel(channel, cue);
+  });
+  markCuePlayed(cue.key, result);
+  return { played: true, key: cue.key, result, cue };
+}
+
+const dispatchGameCue = emitGameCue;
+
+function enumValue(value, allowed, fallback) {
+  return allowed.includes(value) ? value : fallback;
+}
+
+function sanitizeFeelSettings(value = {}) {
+  const source = value && typeof value === "object" ? value : {};
+  const sourceVolume = Number(source.soundVolume);
+  return {
+    ...DEFAULT_FEEL_SETTINGS,
+    schemaVersion: DEFAULT_FEEL_SETTINGS.schemaVersion,
+    motionMode: enumValue(source.motionMode, ["auto", "reduced", "on"], DEFAULT_FEEL_SETTINGS.motionMode),
+    soundEnabled: Boolean(source.soundEnabled),
+    soundVolume: Number.isFinite(sourceVolume) ? clamp(sourceVolume, 0, 100) : DEFAULT_FEEL_SETTINGS.soundVolume,
+    turnSoundEnabled: source.turnSoundEnabled === undefined ? DEFAULT_FEEL_SETTINGS.turnSoundEnabled : Boolean(source.turnSoundEnabled),
+    importantEventSoundEnabled: source.importantEventSoundEnabled === undefined ? DEFAULT_FEEL_SETTINGS.importantEventSoundEnabled : Boolean(source.importantEventSoundEnabled),
+    turnEmphasis: enumValue(source.turnEmphasis, ["normal", "strong"], DEFAULT_FEEL_SETTINGS.turnEmphasis),
+    importantEventEmphasis: source.importantEventEmphasis === undefined ? DEFAULT_FEEL_SETTINGS.importantEventEmphasis : Boolean(source.importantEventEmphasis)
+  };
+}
+
+function loadFeelSettings() {
+  try {
+    const raw = localStorage.getItem(FEEL_SETTINGS_STORAGE_KEY);
+    if (!raw) return sanitizeFeelSettings(DEFAULT_FEEL_SETTINGS);
+    return sanitizeFeelSettings(JSON.parse(raw));
+  } catch (error) {
+    return sanitizeFeelSettings(DEFAULT_FEEL_SETTINGS);
+  }
+}
+
+function saveFeelSettings(settings) {
+  const next = sanitizeFeelSettings(settings);
+  currentFeelSettings = next;
+  try {
+    localStorage.setItem(FEEL_SETTINGS_STORAGE_KEY, JSON.stringify(next));
+  } catch (error) {
+    // Storage failures should not block the game.
+  }
+  applyFeelSettings(next);
+  return next;
+}
+
+function prefersReducedMotion() {
+  return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+}
+
+function getEffectiveFeelSettings(settings = currentFeelSettings) {
+  const normalized = sanitizeFeelSettings(settings);
+  const effectiveMotion = normalized.motionMode === "auto"
+    ? (prefersReducedMotion() ? "reduced" : "on")
+    : normalized.motionMode;
+  return {
+    ...normalized,
+    effectiveMotion,
+    sound: normalized.soundEnabled ? "on" : "off"
+  };
+}
+
+function applyFeelSettings(settings = currentFeelSettings) {
+  const effective = getEffectiveFeelSettings(settings);
+  document.documentElement.dataset.motionMode = effective.motionMode;
+  document.documentElement.dataset.effectiveMotion = effective.effectiveMotion;
+  document.documentElement.dataset.sound = effective.sound;
+  document.documentElement.dataset.eventEmphasis = effective.importantEventEmphasis ? "on" : "off";
+  document.documentElement.dataset.turnEmphasis = effective.turnEmphasis;
+  document.documentElement.classList.toggle("is-reduced-motion", effective.effectiveMotion === "reduced");
+  return effective;
+}
+
+let currentFeelSettings = loadFeelSettings();
+applyFeelSettings(currentFeelSettings);
+
+function getAudioRuntimeState() {
+  return {
+    unlocked: audioRuntime.unlocked,
+    ready: audioRuntime.ready,
+    backend: audioRuntime.backend,
+    loadedAssets: { ...audioRuntime.loadedAssets },
+    lastError: audioRuntime.lastError
+  };
+}
+
+async function enableSoundEffects() {
+  audioRuntime.lastError = null;
+  if (!currentFeelSettings.soundEnabled) return { status: "skipped-disabled", ...getAudioRuntimeState() };
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) {
+      audioRuntime.backend = typeof Audio === "function" ? "htmlAudio" : "none";
+      audioRuntime.unlocked = audioRuntime.backend === "htmlAudio";
+      if (audioRuntime.unlocked) {
+        return { status: "unlocked", ...getAudioRuntimeState() };
+      }
+      audioRuntime.lastError = "audio-context-unavailable";
+      return { status: "failed", ...getAudioRuntimeState() };
+    }
+    if (!audioRuntime.context) {
+      audioRuntime.context = new AudioContextClass();
+      audioRuntime.backend = "webAudio";
+    }
+    if (audioRuntime.context.state === "suspended") {
+      await audioRuntime.context.resume();
+    }
+    audioRuntime.unlocked = audioRuntime.context.state === "running";
+    return { status: audioRuntime.unlocked ? "unlocked" : "locked", ...getAudioRuntimeState() };
+  } catch (error) {
+    audioRuntime.unlocked = false;
+    audioRuntime.lastError = error?.message || String(error);
+    return { status: "failed", ...getAudioRuntimeState() };
+  }
+}
+
+function setSoundVolume(value) {
+  const soundVolume = Number.isFinite(Number(value)) ? clamp(Number(value), 0, 100) : DEFAULT_FEEL_SETTINGS.soundVolume;
+  return saveFeelSettings({ ...currentFeelSettings, soundVolume });
+}
+
+function soundPrivacyForCue(cue) {
+  if (!cue?.type) return "generic";
+  if (cue.type === "resourcesProduced") {
+    return cue.payload?.resourceType ? "viewer-resource" : "generic-resource";
+  }
+  if (cue.type === "robberResult") {
+    return cue.payload?.resourceType ? "viewer-resource" : "generic-robber";
+  }
+  if (cue.type === "devCardBought") return "generic-card";
+  if (cue.type === "devCardPlayed") return cue.payload?.publicCardType ? "public-card" : "generic-card";
+  return "public";
+}
+
+function soundAssetForCue(cue, baseAsset) {
+  if (cue?.type === "resourcesProduced" && !cue.payload?.resourceType) return "card-gain";
+  return baseAsset;
+}
+
+function mapCueToSound(cue, settings = currentFeelSettings) {
+  if (!cue?.type) return null;
+  const eventType = cue.type || cue.eventType;
+  const definition = SOUND_EVENT_MAP[eventType] || SOUND_EVENT_MAP[cue.eventType];
+  if (!definition) return null;
+  if (definition.setting && settings?.[definition.setting] === false) {
+    return {
+      asset: definition.asset,
+      category: definition.category,
+      disabled: true,
+      reason: definition.setting,
+      privacy: soundPrivacyForCue(cue),
+      volumeScale: definition.volumeScale
+    };
+  }
+  const asset = soundAssetForCue(cue, definition.asset);
+  return {
+    asset,
+    category: definition.category,
+    privacy: soundPrivacyForCue(cue),
+    volumeScale: definition.volumeScale,
+    eventType,
+    available: Boolean(audioRuntime.loadedAssets[asset])
+  };
+}
+
+function playSoundCue(cue, settings = currentFeelSettings) {
+  const effective = getEffectiveFeelSettings(settings);
+  if (!effective.soundEnabled) return "skipped-disabled";
+  if (effective.soundVolume <= 0) return "skipped-muted";
+  const soundCue = mapCueToSound(cue, effective);
+  if (!soundCue) return "skipped-no-asset";
+  if (soundCue.disabled) return "skipped-disabled";
+  if (!audioRuntime.unlocked) return "skipped-locked";
+  if (!audioRuntime.loadedAssets[soundCue.asset]) return "skipped-no-asset";
+  return playSoundAsset(soundCue.asset, { volumeScale: soundCue.volumeScale });
+}
+
+function preloadSoundAssets(manifest = {}) {
+  Object.entries(manifest).forEach(([key, value]) => {
+    audioRuntime.loadedAssets[key] = value;
+  });
+  return getAudioRuntimeState();
+}
+
+function playSoundAsset(assetKey, { loop = false, volumeScale = 1, restart = true, allowLocked = false } = {}) {
+  const effective = getEffectiveFeelSettings();
+  if (!effective.soundEnabled) return "skipped-disabled";
+  if (effective.soundVolume <= 0) return "skipped-muted";
+  if (!allowLocked && !audioRuntime.unlocked) return "skipped-locked";
+  const source = audioRuntime.loadedAssets[assetKey];
+  if (!source || typeof Audio !== "function") return "skipped-no-asset";
+  try {
+    if (loop && audioRuntime.activeSounds[assetKey] && !audioRuntime.activeSounds[assetKey].paused) return "playing";
+    if (restart) stopSoundAsset(assetKey);
+    const audio = new Audio(source);
+    audio.loop = loop;
+    audio.volume = clamp((effective.soundVolume / 100) * volumeScale, 0, 1);
+    audioRuntime.activeSounds[assetKey] = audio;
+    const result = audio.play();
+    if (result?.catch) result.catch((error) => { audioRuntime.lastError = error?.message || String(error); });
+    if (!loop) {
+      audio.addEventListener("ended", () => {
+        if (audioRuntime.activeSounds[assetKey] === audio) delete audioRuntime.activeSounds[assetKey];
+      }, { once: true });
+    }
+    return "played";
+  } catch (error) {
+    audioRuntime.lastError = error?.message || String(error);
+    return "failed";
+  }
+}
+
+function stopSoundAsset(assetKey) {
+  const audio = audioRuntime.activeSounds[assetKey];
+  if (!audio) return "skipped";
+  try {
+    audio.pause();
+    audio.currentTime = 0;
+  } catch (error) {
+    audioRuntime.lastError = error?.message || String(error);
+  }
+  delete audioRuntime.activeSounds[assetKey];
+  return "stopped";
+}
+
+function playDiceReleaseSound() {
+  enableSoundEffects();
+  playSoundAsset("dice-release", { volumeScale: 0.54, allowLocked: true });
+}
+
+function playDiceSettleSound() {
+  playSoundAsset("dice-settle", { volumeScale: 0.5, allowLocked: true });
+}
+
+function stopAllSounds() {
+  Object.keys(audioRuntime.activeSounds).forEach(stopSoundAsset);
+  return getAudioRuntimeState();
+}
+
+preloadSoundAssets(SOUND_ASSET_MANIFEST);
 
 function ensureButton(id, text, parent, className = "") {
   let button = document.querySelector(`#${id}`);
@@ -234,9 +861,51 @@ function resourceCount(player) {
   return Object.values(player.resources).reduce((sum, amount) => sum + amount, 0);
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function iconTokenHtml(group, key, { className = "", hidden = true, title = "" } = {}) {
+  const token = ICON_TOKENS[group]?.[key];
+  if (!token) return "";
+  const classes = ["icon-token", `${group}-token`, `${group}-${key}`, className].filter(Boolean).join(" ");
+  const attrs = [
+    `class="${escapeHtml(classes)}"`,
+    hidden ? `aria-hidden="true"` : `role="img" aria-label="${escapeHtml(token.label)}"`,
+    title ? `title="${escapeHtml(title)}"` : ""
+  ].filter(Boolean);
+  const iconPath = TABLER_ICON_PATHS[token.icon];
+  if (!iconPath) return "";
+  return `<span ${attrs.join(" ")}><svg class="tabler-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">${iconPath}</svg></span>`;
+}
+
+function tablerIconHtml(iconKey, className = "") {
+  const iconPath = TABLER_ICON_PATHS[iconKey];
+  if (!iconPath) return "";
+  const classes = ["icon-token", className].filter(Boolean).join(" ");
+  return `<span class="${escapeHtml(classes)}" aria-hidden="true"><svg class="tabler-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false">${iconPath}</svg></span>`;
+}
+
+function resourceIconToken(type, options = {}) {
+  return iconTokenHtml("resource", type, options);
+}
+
+function actionIconToken(type, options = {}) {
+  return iconTokenHtml("action", type, options);
+}
+
+function statusIconToken(type, options = {}) {
+  return iconTokenHtml("status", type, options);
+}
+
 function resourceDisplayName(type) {
   const resource = RESOURCES[type];
-  return resource ? `${resource.icon} ${resource.name}` : type;
+  return resource ? resource.name : type;
 }
 
 function resourceAmountText(type, amount) {
@@ -244,7 +913,7 @@ function resourceAmountText(type, amount) {
 }
 
 function botBadgeHtml(player) {
-  return player?.isBot ? `<span class="bot-badge" title="봇 플레이어" aria-label="봇 플레이어">봇</span>` : "";
+  return "";
 }
 
 function playerDisplayName(player) {
@@ -267,17 +936,17 @@ function pendingActionInstruction(view = game.pendingActionView) {
   if (!view) return "진행 중인 처리를 완료하세요.";
   if (view.type === "discardForSeven") {
     return view.role === "discarder"
-      ? `모달에서 버릴 자원 ${view.needed}장을 선택하세요.`
+      ? `버릴 자원 ${view.needed}장을 선택하세요.`
       : `다른 플레이어가 자원을 버리는 중입니다. 남은 인원: ${view.remainingCount || 0}`;
   }
   if (view.type === "moveRobber") {
     return view.role === "actor"
-      ? "모달 안내를 확인한 뒤 보드에서 도둑을 옮길 타일을 선택하세요."
+      ? "보드에서 현재 도둑 위치가 아닌 타일을 선택하세요."
       : "현재 행동자가 도둑을 이동하는 중입니다.";
   }
   if (view.type === "chooseRobberVictim") {
     return view.role === "actor"
-      ? "모달에서 자원 1장을 가져올 대상을 선택하세요."
+      ? "자원 1장을 가져올 대상을 선택하세요."
       : "현재 행동자가 약탈 대상을 선택하는 중입니다.";
   }
   return "진행 중인 처리를 완료하세요.";
@@ -519,6 +1188,36 @@ function pointBadgeHtml(player, revealHidden = false) {
   return `${points}점${revealHidden && hidden > 0 ? `<small>숨은 ${hidden}</small>` : ""}`;
 }
 
+function pointBadgeNumber(player, revealHidden = false) {
+  return String(revealHidden ? totalPoints(player) : publicPoints(player));
+}
+
+function scoreBreakdownText(player, revealHidden = false) {
+  if (!player) return "점수 정보 없음";
+  const settlements = vertices.filter((vertex) => vertex.owner === player.id && !vertex.city).length;
+  const cities = vertices.filter((vertex) => vertex.owner === player.id && vertex.city).length;
+  const largestArmy = game.largestArmy === player.id ? 2 : 0;
+  const longestRoad = game.longestRoad === player.id ? 2 : 0;
+  const hidden = revealHidden ? hiddenVictoryPoints(player) : 0;
+  const lines = [
+    `마을 ${settlements}개: ${settlements}점`,
+    `도시 ${cities}개: ${cities * 2}점`
+  ];
+  if (largestArmy) lines.push("최대 기사단: 2점");
+  if (longestRoad) lines.push("최장 교역로: 2점");
+  if (revealHidden && hidden) lines.push(`승점 카드 ${hidden}장: ${hidden}점`);
+  if (!revealHidden && isOnlinePlaying()) lines.push("비공개 승점 카드는 제외");
+  lines.push(`합계: ${pointBadgeNumber(player, revealHidden)}점`);
+  return lines.join("\n");
+}
+
+function scoreBadgeAttributes(player, revealHidden = false) {
+  const label = `${playerDisplayName(player)} ${pointBadgeNumber(player, revealHidden)}점`;
+  const breakdown = scoreBreakdownText(player, revealHidden);
+  const isOpen = String(activeScoreTooltipPlayerId) === String(player.id);
+  return `role="button" aria-label="${escapeHtml(`${label}\n${breakdown}`)}" aria-expanded="${isOpen ? "true" : "false"}" data-score-player-id="${escapeHtml(player.id)}" data-score-tooltip="${escapeHtml(breakdown)}" tabindex="0"`;
+}
+
 function isResolvingForcedAction() {
   return ["discard", "robber", "robberVictim"].includes(selectedAction);
 }
@@ -566,6 +1265,10 @@ function devCardName(type) {
     yearPlenty: "풍년",
     monopoly: "독점"
   }[type] || type;
+}
+
+function devCardIconToken(type) {
+  return tablerIconHtml(DEV_CARD_ICON_BY_TYPE[type] || "play-card", "dev-card-token");
 }
 
 function showSetupView(view) {
@@ -752,6 +1455,8 @@ function resetOnlineSession() {
   onlineSession.modalKind = null;
   onlineSession.lastPlayerTradeResultAt = 0;
   onlineSession.lastRobberResultId = null;
+  onlineSession.diceRollPending = false;
+  shownVictoryModalKey = null;
   rejectPendingRequests(new Error("온라인 세션이 정리되었습니다."));
 }
 
@@ -817,6 +1522,8 @@ function sendOnlineCommand(name, payload = {}) {
   if (!socket || socket.readyState !== WebSocket.OPEN) {
     const error = new Error("서버에 연결되어 있지 않습니다.");
     error.code = "SOCKET_CLOSED";
+    error.commandName = name;
+    emitCommandRejectedCue(error, name, payload?.edgeId ?? payload?.vertexId ?? payload?.cardId ?? "socket");
     return Promise.reject(error);
   }
 
@@ -836,6 +1543,8 @@ function sendOnlineCommand(name, payload = {}) {
       onlineSession.pendingRequests.delete(requestId);
       const error = new Error("서버 응답이 지연되고 있습니다.");
       error.code = "REQUEST_TIMEOUT";
+      error.commandName = name;
+      emitCommandRejectedCue(error, name, requestId);
       reject(error);
     }, REQUEST_TIMEOUT_MS);
     onlineSession.pendingRequests.set(requestId, {
@@ -848,6 +1557,9 @@ function sendOnlineCommand(name, payload = {}) {
         reject(error);
       },
       timeoutId
+      , commandName: name
+      , commandPayload: payload
+      , requestId
     });
     socket.send(JSON.stringify(message));
   });
@@ -875,7 +1587,7 @@ function handleOnlineMessage(rawMessage) {
     onlineSession.enabled = true;
     onlineSession.shareUrls = message.shareUrls || (message.shareUrl ? [message.shareUrl] : onlineSession.shareUrls);
     setRoomParam(message.roomId);
-    applyOnlineState(message.state, message.revision);
+    applyOnlineState(message.state, message.revision, { suppressCues: true, resetCueScope: true });
     const playerName = message.state?.players?.find((player) => player.id === message.playerId)?.name || "";
     saveOnlineIdentity(playerName);
     pending.resolve(message);
@@ -889,7 +1601,7 @@ function handleOnlineMessage(rawMessage) {
     }
 
     onlineSession.pendingRequests.delete(message.requestId);
-    applyOnlineState(message.state, message.revision);
+    applyOnlineState(message.state, message.revision, { suppressCues: true, resetCueScope: true });
     pending.resolve(message);
     return;
   }
@@ -924,12 +1636,14 @@ function handleOnlineMessage(rawMessage) {
       onlineSession.pendingRequests.delete(message.requestId);
       const error = new Error(message.message || message.error?.message || "요청을 처리할 수 없습니다.");
       error.code = message.code || message.error?.code;
+      error.commandName = pending.commandName;
+      emitCommandRejectedCue(error, pending.commandName || "command", message.requestId);
       pending.reject(error);
     }
   }
 }
 
-function applyOnlineState(state, revision) {
+function applyOnlineState(state, revision, options = {}) {
   if (!state) return;
   const nextRevision = Number(revision ?? state.revision ?? 0);
   if (onlineSession.state && nextRevision <= onlineSession.revision) return;
@@ -937,9 +1651,14 @@ function applyOnlineState(state, revision) {
   onlineSession.revision = nextRevision;
   onlineSession.state = state;
   onlineSession.isHost = state.hostPlayerId === onlineSession.playerId;
+  if (options.resetCueScope && state.roomId) resetPlayedCueKeys(state.roomId);
+  if (options.suppressCues && state.roomId) suppressHydrateCueScope(state.roomId, nextRevision);
   if ((state.status === "playing" || state.status === "ended") && state.matchState) {
+    if (state.matchState.game?.lastDice || state.matchState.game?.rolled || options.suppressCues) {
+      onlineSession.diceRollPending = false;
+    }
     hydrateMatchState(state.matchState);
-    logOnlineStateDelta(previousState, state);
+    if (!options.suppressCues) logOnlineStateDelta(previousState, state);
     return;
   }
   renderLobby();
@@ -1005,18 +1724,96 @@ function hasOnlineNoticeBlockingState() {
   );
 }
 
+function setActionNotice(title, text, key = null, durationMs = 6500) {
+  if (!title && !text) return;
+  if (key && actionNoticeRuntime.key === key) return;
+  const notice = {
+    key: key || `notice-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    title: title || "행동 알림",
+    text: text || "",
+    createdAt: Date.now()
+  };
+  actionNoticeRuntime.history = actionNoticeRuntime.history.filter((entry) => entry.key !== notice.key);
+  actionNoticeRuntime.history.push(notice);
+  while (actionNoticeRuntime.history.length > actionNoticeRuntime.maxHistory) actionNoticeRuntime.history.shift();
+  actionNoticeRuntime.index = actionNoticeRuntime.history.length - 1;
+  actionNoticeRuntime.key = notice.key;
+  actionNoticeRuntime.title = notice.title;
+  actionNoticeRuntime.text = notice.text;
+  if (actionNoticeRuntime.timeoutId) window.clearTimeout(actionNoticeRuntime.timeoutId);
+  actionNoticeRuntime.timeoutId = window.setTimeout(() => {
+    if (actionNoticeRuntime.key !== notice.key) return;
+    actionNoticeRuntime.key = null;
+    actionNoticeRuntime.title = "";
+    actionNoticeRuntime.text = "";
+    render();
+  }, durationMs);
+  render();
+}
+
+function clearActionNotice() {
+  actionNoticeRuntime.key = null;
+  actionNoticeRuntime.title = "";
+  actionNoticeRuntime.text = "";
+  actionNoticeRuntime.index = actionNoticeRuntime.history.length ? actionNoticeRuntime.history.length - 1 : -1;
+  if (actionNoticeRuntime.timeoutId) {
+    window.clearTimeout(actionNoticeRuntime.timeoutId);
+    actionNoticeRuntime.timeoutId = null;
+  }
+}
+
+function currentActionNotice() {
+  if (!actionNoticeRuntime.title && !actionNoticeRuntime.text) return null;
+  return [actionNoticeRuntime.title, actionNoticeRuntime.text];
+}
+
+function showActionNoticeAt(index) {
+  if (!actionNoticeRuntime.history.length) return;
+  const nextIndex = clamp(index, 0, actionNoticeRuntime.history.length - 1);
+  const notice = actionNoticeRuntime.history[nextIndex];
+  actionNoticeRuntime.index = nextIndex;
+  actionNoticeRuntime.key = notice.key;
+  actionNoticeRuntime.title = notice.title;
+  actionNoticeRuntime.text = notice.text;
+  if (actionNoticeRuntime.timeoutId) {
+    window.clearTimeout(actionNoticeRuntime.timeoutId);
+    actionNoticeRuntime.timeoutId = null;
+  }
+  render();
+}
+
+function showPreviousActionNotice() {
+  showActionNoticeAt(actionNoticeRuntime.index - 1);
+}
+
+function showNextActionNotice() {
+  showActionNoticeAt(actionNoticeRuntime.index + 1);
+}
+
+function renderActionNoticeControls() {
+  const hasHistory = actionNoticeRuntime.history.length > 0;
+  const index = actionNoticeRuntime.index;
+  if (actionNoticePrev) {
+    actionNoticePrev.innerHTML = tablerIconHtml("chevron-left");
+    actionNoticePrev.disabled = !hasHistory || index <= 0;
+  }
+  if (actionNoticeNext) {
+    actionNoticeNext.innerHTML = tablerIconHtml("chevron-right");
+    actionNoticeNext.disabled = !hasHistory || index >= actionNoticeRuntime.history.length - 1;
+  }
+  actionNoticePanel?.setAttribute("data-notice-count", String(actionNoticeRuntime.history.length));
+}
+
 function showNextOnlineNotice() {
   if (!onlineSession.enabled || onlineSession.modalKind || hasOnlineNoticeBlockingState()) return;
   const notice = onlineSession.noticeQueue.shift();
   if (!notice) return;
   onlineSession.activeNoticeKey = notice.key;
-  onlineSession.modalKind = "online-action-notice";
-  showModal(notice.title, notice.text);
-  addModalButton("확인", () => {
-    hideModal();
-    onlineSession.activeNoticeKey = null;
+  setActionNotice(notice.title, notice.text, notice.key);
+  window.setTimeout(() => {
+    if (onlineSession.activeNoticeKey === notice.key) onlineSession.activeNoticeKey = null;
     showNextOnlineNotice();
-  });
+  }, 6600);
 }
 
 function queueOnlineNotice(key, title, text) {
@@ -1097,6 +1894,68 @@ function logOnlineStateDelta(previousState, state) {
   if (!previousGame || !nextGame) return;
   queueOnlineActionNotices(previousState, state, previousGame, nextGame);
 
+  const previousEdges = previousState.matchState?.edges || [];
+  const nextEdges = state.matchState?.edges || [];
+  nextEdges.forEach((edge, edgeId) => {
+    if (previousEdges[edgeId]?.owner === null && edge.owner !== null) {
+      emitBuildCompletedCue("road", edgeId, edge.owner, state.revision);
+    }
+  });
+
+  const previousVertices = previousState.matchState?.vertices || [];
+  const nextVertices = state.matchState?.vertices || [];
+  nextVertices.forEach((vertex, vertexId) => {
+    const previousVertex = previousVertices[vertexId];
+    if (!previousVertex) return;
+    if (previousVertex.owner === null && vertex.owner !== null) {
+      emitBuildCompletedCue("settlement", vertexId, vertex.owner, state.revision);
+    } else if (!previousVertex.city && vertex.city) {
+      emitBuildCompletedCue("city", vertexId, vertex.owner, state.revision);
+    }
+  });
+
+  if (nextGame.lastTrade && nextGame.lastTrade?.createdAt !== previousGame.lastTrade?.createdAt) {
+    emitTradeCompletedCue("bankTradeCompleted", {
+      ...nextGame.lastTrade,
+      revision: state.revision,
+      detailKey: `${nextGame.lastTrade.seatIndex}:${nextGame.lastTrade.give}:${nextGame.lastTrade.get}:${nextGame.lastTrade.createdAt}`
+    });
+  }
+
+  if (state.lastPlayerTradeResult && state.lastPlayerTradeResult?.createdAt !== previousState.lastPlayerTradeResult?.createdAt) {
+    emitTradeCompletedCue(
+      state.lastPlayerTradeResult.type === "completed" ? "playerTradeCompleted" : "playerTradeInvalidated",
+      {
+        ...state.lastPlayerTradeResult,
+        revision: state.revision,
+        detailKey: `${state.lastPlayerTradeResult.tradeId || "trade"}:${state.lastPlayerTradeResult.round || "round"}:${state.lastPlayerTradeResult.type || "result"}`
+      }
+    );
+  }
+
+  nextGame.players?.forEach((nextPlayer, seatIndex) => {
+    const previousPlayer = previousGame.players?.[seatIndex];
+    if (!previousPlayer || !nextPlayer) return;
+    if ((Number(nextPlayer.devCount) || 0) > (Number(previousPlayer.devCount) || 0)) {
+      emitDevCardCue("devCardBought", { seatIndex, revision: state.revision });
+    }
+  });
+
+  if ((previousGame.winner === null || previousGame.winner === undefined) && nextGame.winner !== null && nextGame.winner !== undefined) {
+    emitWinnerDeclaredCue(nextGame.winner, state.revision);
+    showVictoryModal(nextGame.winner, state.revision);
+  }
+
+  const previousPendingKey = previousGame.pendingActionView
+    ? pendingActionCueDetail(previousGame.pendingActionView)
+    : "none";
+  const nextPendingKey = nextGame.pendingActionView
+    ? pendingActionCueDetail(nextGame.pendingActionView)
+    : "none";
+  if (previousPendingKey !== nextPendingKey && nextGame.pendingActionView) {
+    emitPendingActionCue(nextGame.pendingActionView, state.revision);
+  }
+
   if (!previousGame.rolled && nextGame.rolled) {
     logBotPublicAction(nextGame, nextGame.active, "주사위를 굴렸습니다.");
   }
@@ -1124,6 +1983,16 @@ function logOnlineStateDelta(previousState, state) {
 
   if (previousState.matchState?.robberTile !== state.matchState?.robberTile) {
     logBotPublicAction(nextGame, previousGame.pendingActionView?.actorSeatIndex ?? nextGame.active, "강도를 이동했습니다.");
+    emitRobberMovedCue({
+      actorSeatIndex: previousGame.pendingActionView?.actorSeatIndex ?? nextGame.active,
+      fromTileId: previousState.matchState?.robberTile ?? null,
+      toTileId: state.matchState?.robberTile ?? null,
+      revision: state.revision
+    });
+  }
+
+  if (nextGame.lastRobberResult?.id && nextGame.lastRobberResult?.id !== previousGame.lastRobberResult?.id) {
+    emitRobberResultCue(nextGame.lastRobberResult, state.revision);
   }
 }
 
@@ -1173,7 +2042,8 @@ function renderLobby() {
 
   lobbyRoomCode.textContent = state.roomId || onlineSession.roomId || "-";
   lobbyMeLabel.textContent = me ? `${me.name} (${onlineSession.isHost ? "방장" : "참가자"})` : "-";
-  lobbyConnectionBadge.textContent = onlineSession.connected ? "연결됨" : "연결 끊김";
+  lobbyConnectionBadge.innerHTML = `${statusIconToken(onlineSession.connected ? "connection" : "error")}<span>${onlineSession.connected ? "연결됨" : "연결 끊김"}</span>`;
+  lobbyConnectionBadge.setAttribute("aria-label", onlineSession.connected ? "연결됨" : "연결 끊김");
   lobbyConnectionBadge.dataset.connected = onlineSession.connected ? "true" : "false";
   lobbyPlayerCount.textContent = `${state.players.length}/${state.maxPlayers || 4}`;
 
@@ -1219,7 +2089,8 @@ function renderLobby() {
     }
     const status = document.createElement("span");
     status.className = "lobby-player-status";
-    status.textContent = badges.join(" · ");
+    status.innerHTML = `${statusIconToken(player.isBot ? "bot" : player.connected ? "connection" : "error")}<span>${escapeHtml(badges.join(" · "))}</span>`;
+    status.setAttribute("aria-label", badges.join(" · "));
     row.append(dot, name, status);
     if (onlineSession.isHost && state.status === "lobby" && player.isBot) {
       const removeButton = document.createElement("button");
@@ -1477,8 +2348,11 @@ function syncOnlineRoomModals() {
   }
 
   if (game.lastRobberResult?.id && game.lastRobberResult.id !== onlineSession.lastRobberResultId) {
-    showRobberResultModal(game.lastRobberResult);
-    return;
+    if (shouldShowRobberResultModal(game.lastRobberResult)) {
+      showRobberResultModal(game.lastRobberResult);
+      return;
+    }
+    rememberRobberResult(game.lastRobberResult);
   }
 
   showNextOnlineNotice();
@@ -1496,17 +2370,10 @@ function showOnlinePendingActionModal(view) {
 
   if (view.type === "moveRobber") {
     if (view.role === "actor") {
-      if (onlineSession.modalKind !== "move-robber") {
-        onlineSession.modalKind = "move-robber";
-        showModal("도둑 이동", "현재 도둑 위치가 아닌 타일을 선택하세요.");
-        addModalButton("확인", hideModal);
-      }
+      setActionNotice("도둑 이동", "현재 도둑 위치가 아닌 타일을 선택하세요.", `move-robber-${view.actorSeatIndex ?? game.active}`);
       return;
     }
-    if (onlineSession.modalKind !== "move-robber-waiting") {
-      onlineSession.modalKind = "move-robber-waiting";
-      showModal("도둑 이동 대기", "현재 플레이어가 도둑을 이동하는 중입니다.");
-    }
+    if (onlineSession.modalKind === "move-robber-waiting") hideModal();
     return;
   }
 
@@ -1515,10 +2382,8 @@ function showOnlinePendingActionModal(view) {
       if (onlineSession.modalKind !== "choose-robber-victim") showOnlineChooseRobberVictimModal(view);
       return;
     }
-    if (onlineSession.modalKind !== "choose-robber-victim-waiting") {
-      onlineSession.modalKind = "choose-robber-victim-waiting";
-      showModal("약탈 대상 선택 대기", "현재 플레이어가 약탈 대상을 선택하는 중입니다.");
-    }
+    if (onlineSession.modalKind === "choose-robber-victim-waiting") hideModal();
+    setActionNotice("약탈 대상 선택 대기", "현재 플레이어가 약탈 대상을 선택하는 중입니다.", `choose-robber-victim-waiting-${view.actorSeatIndex ?? game.active}`);
   }
 }
 
@@ -1534,6 +2399,9 @@ function showOnlineDiscardForSevenModal(view) {
   const progressLabel = document.createElement("strong");
   const progressTrack = document.createElement("div");
   progressTrack.className = "discard-progress";
+  progressTrack.setAttribute("role", "progressbar");
+  progressTrack.setAttribute("aria-valuemin", "0");
+  progressTrack.setAttribute("aria-valuemax", String(view.needed));
   const progressBar = document.createElement("span");
   progressTrack.append(progressBar);
   const list = document.createElement("div");
@@ -1559,6 +2427,7 @@ function showOnlineDiscardForSevenModal(view) {
     const remaining = Math.max(0, view.needed - total);
     const percent = view.needed > 0 ? Math.min(100, Math.round(total / view.needed * 100)) : 0;
     progressLabel.textContent = `${total}/${view.needed}장 선택`;
+    progressTrack.setAttribute("aria-valuenow", String(total));
     progressBar.style.width = `${percent}%`;
     summary.textContent = remaining > 0
       ? `${remaining}장을 더 선택하세요.`
@@ -1581,15 +2450,12 @@ function showOnlineDiscardForSevenModal(view) {
     plus.textContent = "+";
     const label = document.createElement("span");
     label.className = "discard-picker-label";
-    const icon = document.createElement("span");
-    icon.className = "discard-picker-icon";
-    icon.textContent = info.icon;
-    icon.setAttribute("aria-hidden", "true");
     const name = document.createElement("span");
     name.textContent = info.name;
     const owned = document.createElement("small");
     owned.textContent = `보유 ${player?.resources?.[type] || 0}`;
-    label.append(icon, name, owned);
+    label.innerHTML = resourceIconToken(type, { className: "discard-picker-icon" });
+    label.append(name, owned);
     function paint() {
       amount.textContent = String(selected[type]);
       minus.disabled = selected[type] <= 0;
@@ -1683,19 +2549,38 @@ function showOnlineChooseRobberVictimModal(view) {
 }
 
 function showRobberResultModal(result) {
+  if (!shouldShowRobberResultModal(result)) {
+    rememberRobberResult(result);
+    return;
+  }
   if (hasSeenRobberResult(result)) return;
   rememberRobberResult(result);
-  onlineSession.modalKind = "robber-result";
   onlineSession.lastRobberResultId = result.id;
   const actor = game.players[result.actorSeatIndex]?.name || "플레이어";
   const victim = result.victimSeatIndex === null || result.victimSeatIndex === undefined ? null : game.players[result.victimSeatIndex]?.name;
   if (result.reason === "NO_VICTIM" || !victim) {
-    showModal("도둑 결과", "도둑이 이동했지만 빼앗을 수 있는 자원이 없습니다.");
+    setActionNotice("도둑 결과", "도둑이 이동했지만 빼앗을 수 있는 자원이 없습니다.", result.id);
   } else {
-    const resource = result.resource ? `${RESOURCES[result.resource]?.name || result.resource} 1장` : "자원 1장";
-    showModal("도둑 결과", `${actor}가 ${victim}에게서 ${resource}을 가져왔습니다.`);
+    const resource = canSeeRobberResultResource(result) && result.resource ? `${RESOURCES[result.resource]?.name || result.resource} 1장` : "자원 1장";
+    const isActor = isOnlinePlaying() ? game.viewerSeatIndex === result.actorSeatIndex : game.active === result.actorSeatIndex;
+    const text = isActor
+      ? `${victim}에게서 ${resource}을 빼앗았습니다.`
+      : `${actor}에게 ${resource}을 빼앗겼습니다.`;
+    setActionNotice("도둑 결과", text, result.id);
   }
-  addModalButton("확인", hideModalThenShowNextOnlineNotice);
+}
+
+function canSeeRobberResultResource(result) {
+  if (!result) return false;
+  if (!isOnlinePlaying()) return true;
+  return game.viewerSeatIndex === result.actorSeatIndex || game.viewerSeatIndex === result.victimSeatIndex;
+}
+
+function shouldShowRobberResultModal(result) {
+  if (!result?.id) return false;
+  if (!isOnlinePlaying()) return true;
+  if (result.reason === "NO_VICTIM") return game.viewerSeatIndex === result.actorSeatIndex;
+  return game.viewerSeatIndex === result.actorSeatIndex || game.viewerSeatIndex === result.victimSeatIndex;
 }
 
 function robberResultStorageKey(result) {
@@ -1754,6 +2639,7 @@ function canUseOnlineTurnCommand() {
 
 function canRollOnlineDice() {
   return canUseOnlineTurnCommand()
+    && !onlineSession.diceRollPending
     && !game.rolled
     && !onlineSession.state?.pendingPlayerTrade
     && !game.pendingActionView
@@ -1894,10 +2780,24 @@ async function rollOnlineDice() {
   }
 
   try {
-    await sendOnlineCommand("rollDice");
+    completeDicePressForRoll();
+    const clientHoldMs = takeRollHoldMs();
+    onlineSession.diceRollPending = true;
+    renderDice();
+    renderControls();
+    await sendOnlineCommand("rollDice", {
+      clientHoldMs,
+      clientEntropy: makeDiceSeedMaterial(clientHoldMs, "online-client"),
+      clientStartedAt: rollHoldState.lastStartedAt || Date.now()
+    });
   } catch (error) {
+    rollHoldState.motionState = game.lastDice ? "settled" : "idle";
     addLog(onlineErrorMessage(error));
     render();
+  } finally {
+    onlineSession.diceRollPending = false;
+    renderDice();
+    renderControls();
   }
 }
 
@@ -2178,6 +3078,36 @@ function showModal(title, text) {
   renderBoardZoomButton();
 }
 
+function victoryModalKey(winnerSeatIndex, revision = null) {
+  return `${onlineSession.roomId || "offline"}:${revision ?? "local"}:${winnerSeatIndex}`;
+}
+
+function showVictoryModal(winnerSeatIndex, revision = null) {
+  const winner = game.players[winnerSeatIndex];
+  if (!winner) return;
+  const key = victoryModalKey(winnerSeatIndex, revision);
+  if (shownVictoryModalKey === key) return;
+  shownVictoryModalKey = key;
+  onlineSession.modalKind = "victory";
+
+  const score = totalPoints(winner);
+  const hiddenCount = Number(game.winnerSummary?.victoryDevCount ?? winner.victoryDevCount ?? hiddenVictoryPoints(winner) ?? 0);
+  showModal(`${winner.name} 승리!`, `${score}점 달성${hiddenCount > 0 ? `, 승점 카드 ${hiddenCount}장 포함` : ""}`);
+
+  const summary = document.createElement("div");
+  summary.className = "victory-modal-summary";
+  summary.innerHTML = [
+    `<div><span>최종 점수</span><strong>${score}점</strong></div>`,
+    `<div><span>최장 교역로</span><strong>${game.longestRoad === winnerSeatIndex ? "획득" : "-"}</strong></div>`,
+    `<div><span>최다 기사력</span><strong>${game.largestArmy === winnerSeatIndex ? "획득" : "-"}</strong></div>`,
+    `<div><span>승점 카드</span><strong>${hiddenCount}장</strong></div>`
+  ].join("");
+  modalContent.append(summary);
+
+  addModalButton("결과 보기", hideModal, "secondary-button");
+  if (!isOnlinePlaying()) addModalButton("새 게임", resetToSetup);
+}
+
 function addModalButton(text, onClick, className = "") {
   const button = document.createElement("button");
   button.type = "button";
@@ -2188,16 +3118,231 @@ function addModalButton(text, onClick, className = "") {
   return button;
 }
 
+function canOpenFeelSettingsModal() {
+  if (!onlineSession.modalKind) return true;
+  return onlineSession.modalKind === "feel-settings";
+}
+
+function appendRadioGroup(parent, legendText, name, options, value, onChange) {
+  const fieldset = document.createElement("fieldset");
+  fieldset.className = "feel-setting-group";
+  const legend = document.createElement("legend");
+  legend.textContent = legendText;
+  const row = document.createElement("div");
+  row.className = "segmented-control";
+  options.forEach((option) => {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = name;
+    input.value = option.value;
+    input.checked = option.value === value;
+    input.addEventListener("change", () => {
+      if (input.checked) onChange(option.value);
+    });
+    const text = document.createElement("span");
+    text.textContent = option.label;
+    label.append(input, text);
+    row.append(label);
+  });
+  fieldset.append(legend, row);
+  parent.append(fieldset);
+}
+
+function appendToggle(parent, labelText, checked, onChange) {
+  const label = document.createElement("label");
+  label.className = "feel-setting-toggle";
+  const text = document.createElement("span");
+  text.textContent = labelText;
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.checked = Boolean(checked);
+  input.addEventListener("change", () => onChange(input.checked));
+  label.append(text, input);
+  parent.append(label);
+  return input;
+}
+
+function appendVolumeControl(parent, value, onChange) {
+  const label = document.createElement("label");
+  label.className = "feel-setting-range";
+  const title = document.createElement("span");
+  title.textContent = "효과음 볼륨";
+  const output = document.createElement("strong");
+  output.textContent = `${value}`;
+  const input = document.createElement("input");
+  input.type = "range";
+  input.min = "0";
+  input.max = "100";
+  input.step = "1";
+  input.value = String(value);
+  input.setAttribute("aria-label", "효과음 볼륨");
+  input.addEventListener("input", () => {
+    output.textContent = input.value;
+    onChange(Number(input.value));
+  });
+  label.append(title, input, output);
+  parent.append(label);
+}
+
+function handleFeelSettingsKeydown(event, returnFocusTo) {
+  if (onlineSession.modalKind !== "feel-settings") return;
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeFeelSettingsModal(returnFocusTo);
+    return;
+  }
+  if (event.key !== "Tab") return;
+  const focusable = [...modalOverlay.querySelectorAll("button, input, select, textarea, [tabindex]:not([tabindex='-1'])")]
+    .filter((element) => !element.disabled && element.offsetParent !== null);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function closeFeelSettingsModal(returnFocusTo = feelSettingsButton) {
+  hideModal();
+  returnFocusTo?.focus?.();
+}
+
+function showFeelSettingsModal() {
+  if (!canOpenFeelSettingsModal()) return;
+  const returnFocusTo = document.activeElement;
+  onlineSession.modalKind = "feel-settings";
+  showModal("효과 설정", "모션과 효과음 선호를 조정합니다.");
+  onlineSession.modalKind = "feel-settings";
+
+  const panel = document.createElement("div");
+  panel.className = "feel-settings-panel";
+
+  let draft = sanitizeFeelSettings(currentFeelSettings);
+  function commit(next) {
+    draft = saveFeelSettings({ ...draft, ...next });
+    renderFeelSettingsSummary();
+  }
+
+  appendRadioGroup(panel, "모션 효과", "feel-motion-mode", [
+    { value: "auto", label: "자동" },
+    { value: "reduced", label: "줄이기" },
+    { value: "on", label: "켜기" }
+  ], draft.motionMode, (motionMode) => commit({ motionMode }));
+
+  appendToggle(panel, "효과음", draft.soundEnabled, (soundEnabled) => {
+    commit({ soundEnabled });
+    if (soundEnabled) enableSoundEffects().then(renderFeelSettingsSummary);
+  });
+  appendVolumeControl(panel, draft.soundVolume, (soundVolume) => {
+    setSoundVolume(soundVolume);
+    draft = sanitizeFeelSettings({ ...draft, soundVolume });
+    renderFeelSettingsSummary();
+  });
+
+  appendRadioGroup(panel, "내 차례 강조", "feel-turn-emphasis", [
+    { value: "normal", label: "기본" },
+    { value: "strong", label: "강하게" }
+  ], draft.turnEmphasis, (turnEmphasis) => commit({ turnEmphasis }));
+
+  appendToggle(panel, "중요 이벤트 강조", draft.importantEventEmphasis, (importantEventEmphasis) => commit({ importantEventEmphasis }));
+  appendToggle(panel, "내 차례 효과음", draft.turnSoundEnabled, (turnSoundEnabled) => commit({ turnSoundEnabled }));
+  appendToggle(panel, "중요 이벤트 효과음", draft.importantEventSoundEnabled, (importantEventSoundEnabled) => commit({ importantEventSoundEnabled }));
+
+  const summary = document.createElement("p");
+  summary.className = "feel-settings-summary";
+  summary.setAttribute("role", "status");
+  function renderFeelSettingsSummary() {
+    const effective = getEffectiveFeelSettings(draft);
+    const audio = getAudioRuntimeState();
+    const soundStatus = effective.soundEnabled
+      ? (audio.unlocked ? "켜기" : "켜기 대기")
+      : "끄기";
+    summary.textContent = `적용 모션: ${effective.effectiveMotion === "reduced" ? "줄이기" : "켜기"} / 효과음: ${soundStatus} / 볼륨 ${effective.soundVolume}`;
+  }
+  renderFeelSettingsSummary();
+  panel.append(summary);
+
+  modalContent.append(panel);
+  const close = addModalButton("닫기", () => closeFeelSettingsModal(returnFocusTo));
+  modalOverlay.addEventListener("keydown", function onKeydown(event) {
+    if (onlineSession.modalKind !== "feel-settings") {
+      modalOverlay.removeEventListener("keydown", onKeydown);
+      return;
+    }
+    handleFeelSettingsKeydown(event, returnFocusTo);
+  });
+  requestAnimationFrame(() => {
+    const first = modalContent.querySelector("input, button");
+    (first || close).focus();
+  });
+}
+
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
 function isMobileViewport() {
-  return window.matchMedia?.(MOBILE_VIEWPORT_QUERY).matches || window.innerWidth <= 780;
+  return window.matchMedia?.(MOBILE_VIEWPORT_QUERY).matches || (window.innerWidth <= 780 && window.innerHeight >= window.innerWidth);
+}
+
+function isLandscapePanelViewport() {
+  return window.matchMedia?.(LANDSCAPE_PANEL_QUERY).matches || (window.innerWidth <= 1150 && window.innerWidth > window.innerHeight);
+}
+
+function shouldDockDiceInControlPanel() {
+  return !isMobileViewport();
+}
+
+function rememberResponsiveHome(key, node) {
+  if (!node || responsivePanelRuntime[key]) return;
+  responsivePanelRuntime[key] = {
+    parent: node.parentElement,
+    nextSibling: node.nextSibling
+  };
+}
+
+function restoreResponsiveNode(key, node) {
+  const home = responsivePanelRuntime[key];
+  if (!home?.parent || !node || node.parentElement === home.parent) return;
+  home.parent.insertBefore(node, home.nextSibling);
+}
+
+function syncResponsivePanelPlacement() {
+  const useLandscapePanel = isLandscapePanelViewport();
+  const dockDiceInPanel = shouldDockDiceInControlPanel();
+  appEl?.classList.toggle("is-landscape-panel-layout", useLandscapePanel);
+  appEl?.classList.toggle("is-dice-panel-docked", dockDiceInPanel);
+  playersPanel?.classList.toggle("is-landscape-hidden", useLandscapePanel);
+  rememberResponsiveHome("playerStripHome", boardPlayerStrip);
+  rememberResponsiveHome("dicePanelHome", dicePanel);
+
+  if (useLandscapePanel) {
+    if (boardPlayerStrip && landscapePlayerStripMount && boardPlayerStrip.parentElement !== landscapePlayerStripMount) {
+      landscapePlayerStripMount.append(boardPlayerStrip);
+    }
+    responsivePanelRuntime.movedToLandscapePanel = true;
+  } else if (responsivePanelRuntime.movedToLandscapePanel) {
+    restoreResponsiveNode("playerStripHome", boardPlayerStrip);
+    responsivePanelRuntime.movedToLandscapePanel = false;
+  }
+
+  if (dockDiceInPanel) {
+    if (dicePanel && landscapeDiceMount && dicePanel.parentElement !== landscapeDiceMount) {
+      clearFloatingPanelTransforms();
+      landscapeDiceMount.append(dicePanel);
+    }
+  } else {
+    restoreResponsiveNode("dicePanelHome", dicePanel);
+  }
 }
 
 function clearFloatingPanelTransforms() {
-  [costReferenceCard, dicePanel].forEach((panel) => {
+  [dicePanel].forEach((panel) => {
     if (!panel) return;
     panel.classList.remove("dragging");
     panel.style.transform = "";
@@ -2207,91 +3352,29 @@ function clearFloatingPanelTransforms() {
 }
 
 function syncFloatingPanelsForViewport() {
-  if (isMobileViewport()) clearFloatingPanelTransforms();
+  syncResponsivePanelPlacement();
+  if (isMobileViewport() || shouldDockDiceInControlPanel()) clearFloatingPanelTransforms();
   else {
-    restoreCostCardPosition();
     restoreDicePanelPosition();
   }
 }
 
-function applyCostCardPosition(x, y) {
-  if (!costReferenceCard) return;
-  costReferenceCard.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
-  costReferenceCard.dataset.x = String(Math.round(x));
-  costReferenceCard.dataset.y = String(Math.round(y));
-}
-
 function restoreCostCardPosition() {
   if (!costReferenceCard) return;
-  if (isMobileViewport()) {
-    clearFloatingPanelTransforms();
-    return;
-  }
-  const saved = localStorage.getItem("katanCostCardPosition");
-  if (!saved) return;
+  costReferenceCard.classList.remove("dragging");
+  costReferenceCard.style.transform = "";
+  delete costReferenceCard.dataset.x;
+  delete costReferenceCard.dataset.y;
   try {
-    const { x, y } = JSON.parse(saved);
-    applyCostCardPosition(Number(x) || 0, Number(y) || 0);
-  } catch {
     localStorage.removeItem("katanCostCardPosition");
+  } catch {
+    // Storage cleanup is best-effort.
   }
 }
 
 function initCostCardDrag() {
   if (!costReferenceCard || !costReferenceHandle) return;
-  if (!isMobileViewport()) restoreCostCardPosition();
-
-  let drag = null;
-  const startDrag = (event) => {
-    if (isMobileViewport()) {
-      clearFloatingPanelTransforms();
-      return;
-    }
-    if (event.button !== undefined && event.button !== 0) return;
-    const table = costReferenceCard.closest(".tabletop");
-    if (!table) return;
-    const tableRect = table.getBoundingClientRect();
-    const cardRect = costReferenceCard.getBoundingClientRect();
-    drag = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: Number(costReferenceCard.dataset.x) || 0,
-      originY: Number(costReferenceCard.dataset.y) || 0,
-      minX: tableRect.left - cardRect.left + (Number(costReferenceCard.dataset.x) || 0),
-      minY: tableRect.top - cardRect.top + (Number(costReferenceCard.dataset.y) || 0),
-      maxX: tableRect.right - cardRect.right + (Number(costReferenceCard.dataset.x) || 0),
-      maxY: tableRect.bottom - cardRect.bottom + (Number(costReferenceCard.dataset.y) || 0)
-    };
-    costReferenceCard.classList.add("dragging");
-    costReferenceHandle.setPointerCapture?.(event.pointerId);
-    event.preventDefault();
-  };
-
-  const moveDrag = (event) => {
-    if (!drag || event.pointerId !== drag.pointerId) return;
-    const nextX = clamp(drag.originX + event.clientX - drag.startX, drag.minX, drag.maxX);
-    const nextY = clamp(drag.originY + event.clientY - drag.startY, drag.minY, drag.maxY);
-    applyCostCardPosition(nextX, nextY);
-  };
-
-  const endDrag = (event) => {
-    if (!drag || event.pointerId !== drag.pointerId) return;
-    localStorage.setItem("katanCostCardPosition", JSON.stringify({
-      x: Number(costReferenceCard.dataset.x) || 0,
-      y: Number(costReferenceCard.dataset.y) || 0
-    }));
-    costReferenceCard.classList.remove("dragging");
-    drag = null;
-  };
-
-  costReferenceHandle.addEventListener("pointerdown", startDrag);
-  costReferenceHandle.addEventListener("pointermove", moveDrag);
-  costReferenceHandle.addEventListener("pointerup", endDrag);
-  costReferenceHandle.addEventListener("pointercancel", endDrag);
-  window.addEventListener("pointermove", moveDrag);
-  window.addEventListener("pointerup", endDrag);
-  window.addEventListener("pointercancel", endDrag);
+  restoreCostCardPosition();
 }
 
 function applyDicePanelPosition(x, y) {
@@ -2618,11 +3701,11 @@ function hasLegalRoadPlacement(playerId) {
 
 function buildSettlement(player, vertexId, setup = false) {
   if (blockOnlineGameAction()) return false;
-  if (!canBuildSettlement(player.id, vertexId, setup)) return addLog("마을을 지을 수 없는 위치입니다."), false;
+  if (!canBuildSettlement(player.id, vertexId, setup)) return rejectLocalAction("마을을 지을 수 없는 위치입니다.", "buildSettlement", "INVALID_PLACEMENT", vertexId);
   if (!setup) {
-    if (!canTakePostRollAction()) return addLog("주사위를 굴린 뒤 건설할 수 있습니다."), false;
-    if (player.settlements <= 0) return addLog("남은 마을 말이 없습니다."), false;
-    if (!hasResources(player, COSTS.settlement)) return addLog("마을 비용이 부족합니다."), false;
+    if (!canTakePostRollAction()) return rejectLocalAction("주사위를 굴린 뒤 건설할 수 있습니다.", "buildSettlement", "ROLL_REQUIRED", vertexId);
+    if (player.settlements <= 0) return rejectLocalAction("남은 마을 말이 없습니다.", "buildSettlement", "NO_PIECES", vertexId);
+    if (!hasResources(player, COSTS.settlement)) return rejectLocalAction("마을 비용이 부족합니다.", "buildSettlement", "NOT_ENOUGH_RESOURCES", vertexId);
     spend(player, COSTS.settlement);
   }
   vertices[vertexId].owner = player.id;
@@ -2630,6 +3713,7 @@ function buildSettlement(player, vertexId, setup = false) {
   player.settlements -= 1;
   game.pendingSettlement = vertexId;
   addLog(`${player.name}: 마을 건설.`);
+  emitBuildCompletedCue("settlement", vertexId, player.id);
   if (setup && game.phase === "setup2") grantInitialResources(player, vertexId);
   updateLongestRoad();
   if (!setup) checkWin();
@@ -2638,15 +3722,15 @@ function buildSettlement(player, vertexId, setup = false) {
 
 function buildRoad(player, edgeId, setup = false) {
   if (blockOnlineGameAction()) return false;
-  if (!canBuildRoad(player.id, edgeId, setup)) return addLog("도로를 지을 수 없는 위치입니다."), false;
+  if (!canBuildRoad(player.id, edgeId, setup)) return rejectLocalAction("도로를 지을 수 없는 위치입니다.", "buildRoad", "INVALID_PLACEMENT", edgeId);
   const freeRoad = selectedAction === "roadBuilding" && game.pendingFreeRoads > 0;
   if (!setup && !freeRoad) {
-    if (!canTakePostRollAction()) return addLog("주사위를 굴린 뒤 건설할 수 있습니다."), false;
-    if (player.roads <= 0) return addLog("남은 도로 말이 없습니다."), false;
-    if (!hasResources(player, COSTS.road)) return addLog("도로 비용이 부족합니다."), false;
+    if (!canTakePostRollAction()) return rejectLocalAction("주사위를 굴린 뒤 건설할 수 있습니다.", "buildRoad", "ROLL_REQUIRED", edgeId);
+    if (player.roads <= 0) return rejectLocalAction("남은 도로 말이 없습니다.", "buildRoad", "NO_PIECES", edgeId);
+    if (!hasResources(player, COSTS.road)) return rejectLocalAction("도로 비용이 부족합니다.", "buildRoad", "NOT_ENOUGH_RESOURCES", edgeId);
     spend(player, COSTS.road);
   }
-  if (freeRoad && player.roads <= 0) return addLog("남은 도로 말이 없습니다."), false;
+  if (freeRoad && player.roads <= 0) return rejectLocalAction("남은 도로 말이 없습니다.", "buildRoad", "NO_PIECES", edgeId);
   edges[edgeId].owner = player.id;
   player.roads -= 1;
   game.pendingSettlement = null;
@@ -2658,6 +3742,7 @@ function buildRoad(player, edgeId, setup = false) {
   } else {
     addLog(`${player.name}: 도로 건설.`);
   }
+  emitBuildCompletedCue("road", edgeId, player.id);
   updateLongestRoad();
   checkWin();
   return true;
@@ -2665,16 +3750,17 @@ function buildRoad(player, edgeId, setup = false) {
 
 function buildCity(player, vertexId) {
   if (blockOnlineGameAction()) return false;
-  if (!canTakePostRollAction()) return addLog("주사위를 굴린 뒤 도시로 업그레이드할 수 있습니다."), false;
+  if (!canTakePostRollAction()) return rejectLocalAction("주사위를 굴린 뒤 도시로 업그레이드할 수 있습니다.", "buildCity", "ROLL_REQUIRED", vertexId);
   const vertex = vertices[vertexId];
-  if (vertex.owner !== player.id || vertex.city) return addLog("내 마을만 도시로 올릴 수 있습니다."), false;
-  if (player.cities <= 0) return addLog("남은 도시 말이 없습니다."), false;
-  if (!hasResources(player, COSTS.city)) return addLog("도시 비용이 부족합니다."), false;
+  if (vertex.owner !== player.id || vertex.city) return rejectLocalAction("내 마을만 도시로 올릴 수 있습니다.", "buildCity", "INVALID_PLACEMENT", vertexId);
+  if (player.cities <= 0) return rejectLocalAction("남은 도시 말이 없습니다.", "buildCity", "NO_PIECES", vertexId);
+  if (!hasResources(player, COSTS.city)) return rejectLocalAction("도시 비용이 부족합니다.", "buildCity", "NOT_ENOUGH_RESOURCES", vertexId);
   spend(player, COSTS.city);
   vertex.city = true;
   player.cities -= 1;
   player.settlements += 1;
   addLog(`${player.name}: 도시 업그레이드.`);
+  emitBuildCompletedCue("city", vertexId, player.id);
   checkWin();
   return true;
 }
@@ -2709,19 +3795,570 @@ function setupStepComplete() {
 function rollDice() {
   const die1 = 1 + Math.floor(Math.random() * 6);
   const die2 = 1 + Math.floor(Math.random() * 6);
-  return { die1, die2, total: die1 + die2 };
+  const total = die1 + die2;
+  const animationSeed = makeDiceSeedMaterial(takeRollHoldMs(), "offline");
+  return { die1, die2, total, animationSeed, rollId: `${makeCueScopeId()}-${game.round}-${game.active}-${die1}-${die2}` };
 }
 
 function renderDice() {
   const dice = game.lastDice;
-  if (dieOne) dieOne.textContent = dice ? dice.die1 : "-";
-  if (dieTwo) dieTwo.textContent = dice ? dice.die2 : "-";
-  diceTotal.textContent = dice ? dice.total : "-";
-  diceTotal.closest(".dice-readout")?.classList.toggle("dice-seven", dice?.total === 7);
+  const rollKey = makeDiceRollKey(dice);
+  if (dice) {
+    const shouldEmitDiceCue = diceTotalRevealState.rollKey !== rollKey || !diceTotalRevealState.cueEmitted;
+    rollHoldState.motionState = "settled";
+    renderDieCube(dieOne, dice.die1, rollKey ? `${rollKey}:die1` : "");
+    renderDieCube(dieTwo, dice.die2, rollKey ? `${rollKey}:die2` : "");
+    updateDiceTotalReveal(dice, rollKey);
+    syncDiceMotionClasses();
+    if (shouldEmitDiceCue) {
+      emitDiceAndProductionCues(dice);
+      diceTotalRevealState.cueEmitted = true;
+    }
+    return;
+  }
+
+  if (rollHoldState.motionState === "holding" || rollHoldState.motionState === "resolving" || onlineSession.diceRollPending) {
+    if (onlineSession.diceRollPending && rollHoldState.motionState === "idle") rollHoldState.motionState = "resolving";
+    showDiceSpinningPreview();
+    syncDiceMotionClasses();
+    return;
+  }
+
+  rollHoldState.motionState = "idle";
+  renderDieCube(dieOne, null, "");
+  renderDieCube(dieTwo, null, "");
+  resetDiceTotalReveal();
+  syncDiceMotionClasses();
+}
+
+function clearDiceTotalRevealTimer() {
+  if (!diceTotalRevealState.timer) return;
+  window.clearTimeout(diceTotalRevealState.timer);
+  diceTotalRevealState.timer = null;
+}
+
+function setDiceTotalVisible(dice, visible) {
+  const wasVisible = diceTotalRevealState.visible;
+  diceTotalRevealState.visible = visible;
+  diceTotal.textContent = visible ? dice.total : "-";
+  diceTotal.classList.toggle("dice-total-pending", !visible);
+  diceTotal.setAttribute("aria-busy", visible ? "false" : "true");
+  diceTotal.closest(".dice-readout")?.classList.toggle("dice-seven", visible && dice.total === 7);
+  if (visible && !wasVisible && !diceTotalRevealState.settlePlayed) {
+    diceTotalRevealState.settlePlayed = true;
+    playDiceSettleSound();
+  }
+}
+
+function updateDiceTotalReveal(dice, rollKey) {
+  if (!dice) {
+    resetDiceTotalReveal();
+    return;
+  }
+  const reduced = getEffectiveFeelSettings().effectiveMotion === "reduced";
+  if (diceTotalRevealState.rollKey !== rollKey) {
+    clearDiceTotalRevealTimer();
+    diceTotalRevealState.rollKey = rollKey;
+    diceTotalRevealState.settlePlayed = false;
+    setDiceTotalVisible(dice, reduced);
+    if (!reduced) {
+      diceTotalRevealState.timer = window.setTimeout(() => {
+        diceTotalRevealState.timer = null;
+        if (makeDiceRollKey(game.lastDice) !== rollKey) return;
+        setDiceTotalVisible(game.lastDice, true);
+      }, 760);
+    }
+    return;
+  }
+
+  setDiceTotalVisible(dice, diceTotalRevealState.visible || reduced);
+}
+
+function resetDiceTotalReveal() {
+  clearDiceTotalRevealTimer();
+  diceTotalRevealState.rollKey = "";
+  diceTotalRevealState.visible = false;
+  diceTotalRevealState.settlePlayed = false;
+  diceTotalRevealState.cueEmitted = false;
+  diceTotal.textContent = "-";
+  diceTotal.classList.remove("dice-total-pending");
+  diceTotal.setAttribute("aria-busy", "false");
+  diceTotal.closest(".dice-readout")?.classList.remove("dice-seven");
+}
+
+function makeDiceRollKey(dice) {
+  if (!dice) return "";
+  return [dice.animationSeed || "", dice.rollId || "", dice.die1, dice.die2, dice.total].join(":");
+}
+
+function hashStringToUint32(seed) {
+  const text = String(seed || "");
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededRange(seed, min, max) {
+  const normalized = hashStringToUint32(seed) / 0xffffffff;
+  return min + (max - min) * normalized;
+}
+
+function makeDiceMotionStyle(value, rollKey = "") {
+  const normalized = Number(value);
+  if (!(normalized >= 1 && normalized <= 6)) return "";
+  const seed = `${normalized}:${rollKey || "static"}`;
+  const properties = {
+    "--dice-roll-x-start": `${Math.round(seededRange(`${seed}:x-start`, 360, 1080))}deg`,
+    "--dice-roll-y-start": `${Math.round(seededRange(`${seed}:y-start`, 360, 1080))}deg`,
+    "--dice-roll-z-start": `${Math.round(seededRange(`${seed}:z-start`, -180, 180))}deg`,
+    "--dice-roll-x-mid": `${Math.round(seededRange(`${seed}:x-mid`, -28, 28))}deg`,
+    "--dice-roll-y-mid": `${Math.round(seededRange(`${seed}:y-mid`, -28, 28))}deg`,
+    "--dice-roll-pop": seededRange(`${seed}:pop`, 1.03, 1.1).toFixed(3),
+    "--dice-roll-duration": `${Math.round(seededRange(`${seed}:duration`, 420, 620))}ms`
+  };
+  return Object.entries(properties).map(([name, value]) => `${name}: ${value}`).join("; ");
+}
+
+function legacyRenderDieCube(element, value, rollKey = "") {
+  if (!element) return;
+  const normalized = Number(value);
+  const display = normalized >= 1 && normalized <= 6 ? normalized : null;
+  const nextKey = `${display || "none"}:${rollKey}`;
+  if (element.dataset.renderKey === nextKey) return;
+  element.dataset.renderKey = nextKey;
+  element.dataset.value = display ? String(display) : "none";
+  element.setAttribute("aria-label", display ? `주사위 ${display}` : "주사위 없음");
+  ensureDieCubeStructure(element);
+  renderDieCube(element, value, rollKey);
+}
+
+function legacyRenderPressingDieCube(element, rollKey = "", motionValue = 1) {
+  if (!element) return;
+  const nextKey = `pressing:${rollKey}`;
+  if (element.dataset.renderKey === nextKey) return;
+  element.dataset.renderKey = nextKey;
+  element.dataset.value = "none";
+  element.setAttribute("aria-label", "주사위 굴리는 중");
+  ensureDieCubeStructure(element);
+  renderDieCube(element, null, rollKey, motionValue);
+}
+
+function legacyShowDicePressingPreview() {
+  if (!dicePanel || game.lastDice) return;
+  const pressKey = [makeCueScopeId(), game.round, game.active, rollHoldState.lastStartedAt || performance.now(), "pressing"].join(":");
+  renderPressingDieCube(dieOne, `${pressKey}:die1`, 1);
+  renderPressingDieCube(dieTwo, `${pressKey}:die2`, 6);
+  diceTotal.textContent = "-";
+  diceTotal.closest(".dice-readout")?.classList.remove("dice-seven");
+}
+
+function syncDiceMotionClasses() {
+  if (!dicePanel) return;
+  dicePanel.classList.toggle("dice-holding", rollHoldState.motionState === "holding");
+  dicePanel.classList.toggle("dice-resolving", rollHoldState.motionState === "resolving");
+  dicePanel.classList.toggle("dice-settled", rollHoldState.motionState === "settled" && Boolean(game.lastDice));
+  dicePanel.classList.toggle("dice-rolling", rollHoldState.motionState === "resolving" && !game.lastDice);
+}
+
+function ensureDieCubeStructure(element) {
+  if (!element) return;
+  if (element.querySelector(".dice-motion-shell") && element.querySelector(".die-fallback")) return;
+  element.innerHTML = `<span class="dice-motion-shell" aria-hidden="true"><span class="dice-cube">${[1, 2, 3, 4, 5, 6].map((face) => `<span class="dice-side dice-side-${face}">${face}</span>`).join("")}</span></span><span class="die-fallback">-</span>`;
+}
+
+function renderDieCube(element, value, rollKey = "", motionValue = value) {
+  if (!element) return;
+  ensureDieCubeStructure(element);
+  const normalized = Number(value);
+  const display = normalized >= 1 && normalized <= 6 ? normalized : null;
+  const motionNormalized = Number(motionValue);
+  const motionDisplay = motionNormalized >= 1 && motionNormalized <= 6 ? motionNormalized : display;
+  const nextKey = `${display || "none"}:${motionDisplay || "none"}:${rollKey}`;
+  if (element.dataset.renderKey !== nextKey) {
+    element.dataset.renderKey = nextKey;
+    element.dataset.value = display ? String(display) : "none";
+    element.setAttribute("aria-label", display ? `二쇱궗??${display}` : "二쇱궗???놁쓬");
+    const fallback = element.querySelector(".die-fallback");
+    if (fallback) fallback.textContent = display ? String(display) : "-";
+  }
+  const shell = element.querySelector(".dice-motion-shell");
+  if (shell) shell.setAttribute("style", makeDiceMotionStyle(motionDisplay, rollKey));
+}
+
+function renderPressingDieCube(element, rollKey = "", motionValue = 1) {
+  renderDieCube(element, null, `pressing:${rollKey}`, motionValue);
+  element?.setAttribute("aria-label", "Rolling dice");
+}
+
+function showDiceSpinningPreview() {
+  if (!dicePanel || game.lastDice) return;
+  const pressKey = [makeCueScopeId(), game.round, game.active, rollHoldState.lastStartedAt || performance.now(), rollHoldState.motionState].join(":");
+  renderPressingDieCube(dieOne, `${pressKey}:die1`, 1);
+  renderPressingDieCube(dieTwo, `${pressKey}:die2`, 6);
+  diceTotal.textContent = "-";
+  diceTotal.closest(".dice-readout")?.classList.remove("dice-seven");
+}
+
+function clearDicePressCleanupTimer() {
+  if (!rollHoldState.releaseCleanupTimer) return;
+  window.clearTimeout(rollHoldState.releaseCleanupTimer);
+  rollHoldState.releaseCleanupTimer = null;
+}
+
+function setDiceHoldGaugeState(state) {
+  if (!diceHoldGauge) return;
+  diceHoldGauge.classList.toggle("is-charging", state === "charging");
+  diceHoldGauge.classList.toggle("is-draining", state === "draining");
+  diceHoldGauge.classList.toggle("is-idle", state === "idle");
+}
+
+function startDiceHoldGauge() {
+  if (!diceHoldGauge) return;
+  setDiceHoldGaugeState("idle");
+  void diceHoldGauge.offsetWidth;
+  setDiceHoldGaugeState("charging");
+}
+
+function drainDiceHoldGauge() {
+  if (!diceHoldGauge) return;
+  setDiceHoldGaugeState("draining");
+}
+
+function captureDiceHoldMs() {
+  if (!rollHoldState.startedAt) return;
+  rollHoldState.lastHoldMs = clamp(performance.now() - rollHoldState.startedAt, 0, 3000);
+}
+
+function completeDicePressForRoll() {
+  captureDiceHoldMs();
+  clearDicePressCleanupTimer();
+  rollHoldState.pointerId = null;
+  rollHoldState.startedAt = 0;
+  rollHoldState.awaitingClick = false;
+  rollHoldState.motionState = "resolving";
+  syncDiceMotionClasses();
+  drainDiceHoldGauge();
+}
+
+function scheduleDicePressCleanup() {
+  clearDicePressCleanupTimer();
+  rollHoldState.releaseCleanupTimer = window.setTimeout(() => {
+    rollHoldState.releaseCleanupTimer = null;
+    if (rollHoldState.startedAt || game.lastDice) return;
+    rollHoldState.awaitingClick = false;
+    rollHoldState.motionState = "idle";
+    setDiceHoldGaugeState("idle");
+    renderDice();
+  }, 900);
+}
+
+function startDicePress(event) {
+  if (rollButton?.disabled) return;
+  if (event.button !== undefined && event.button !== 0) return;
+  if (rollHoldState.startedAt) return;
+  clearDicePressCleanupTimer();
+  rollHoldState.pointerId = event.pointerId ?? null;
+  rollHoldState.startedAt = performance.now();
+  rollHoldState.lastStartedAt = rollHoldState.startedAt;
+  rollHoldState.awaitingClick = false;
+  rollHoldState.motionState = "holding";
+  startDiceHoldGauge();
+  showDiceSpinningPreview();
+  syncDiceMotionClasses();
+}
+
+function finishDicePress(event) {
+  if (rollHoldState.pointerId !== null && event.pointerId !== rollHoldState.pointerId) return;
+  captureDiceHoldMs();
+  playDiceReleaseSound();
+  rollHoldState.pointerId = null;
+  rollHoldState.startedAt = 0;
+  rollHoldState.awaitingClick = true;
+  rollHoldState.motionState = "resolving";
+  drainDiceHoldGauge();
+  syncDiceMotionClasses();
+  scheduleDicePressCleanup();
+}
+
+function cancelDicePress() {
+  clearDicePressCleanupTimer();
+  rollHoldState.pointerId = null;
+  rollHoldState.startedAt = 0;
+  rollHoldState.awaitingClick = false;
+  rollHoldState.motionState = game.lastDice ? "settled" : "idle";
+  drainDiceHoldGauge();
+  if (!game.lastDice) renderDice();
+  else syncDiceMotionClasses();
+}
+
+function startDiceKeyboardPress(event) {
+  if (event.key !== " " && event.key !== "Enter") return;
+  startDicePress(event);
+}
+
+function finishDiceKeyboardPress(event) {
+  if (event.key !== " " && event.key !== "Enter") return;
+  finishDicePress(event);
+}
+
+function takeRollHoldMs() {
+  const holdMs = Math.round(clamp(rollHoldState.lastHoldMs || 0, 0, 3000));
+  rollHoldState.lastHoldMs = 0;
+  return holdMs;
+}
+
+function makeDiceSeedMaterial(holdMs = 0, source = "local") {
+  const randomPart = window.crypto?.getRandomValues
+    ? Array.from(window.crypto.getRandomValues(new Uint32Array(2))).join("-")
+    : Math.random().toString(36).slice(2);
+  return [makeCueScopeId(), source, game.round, game.active, holdMs, Math.round(performance.now()), randomPart].join(":");
+}
+
+function emitDiceAndProductionCues(dice) {
+  const scopeId = makeCueScopeId();
+  const revision = isOnlinePlaying() ? onlineSession.revision : (dice.rollId || `${game.round}-${game.active}-${dice.total}`);
+  const diceCue = makeRawCueCandidate(dice.total === 7 ? "sevenRolled" : "diceRolled", {
+    scopeId,
+    revision,
+    entityId: `seat-${game.active}`,
+    detailKey: `${dice.die1}-${dice.die2}`,
+    channels: { visual: true, sound: true },
+    payload: { dice: { die1: dice.die1, die2: dice.die2 }, total: dice.total, animationSeed: dice.animationSeed || null }
+  });
+  const diceCueResult = emitGameCue(diceCue, { settings: currentFeelSettings });
+  if (dice.total === 7 && diceCueResult.played) {
+    playFeelVisualCue("motion-alert-cue", [dicePanel, turnStagePanel, guideTitle, guideText]);
+  }
+
+  (game.lastProduction || []).forEach((entry, index) => {
+    emitGameCue(makeRawCueCandidate("resourcesProduced", {
+      scopeId,
+      revision,
+      entityId: `seat-${entry.seatIndex}`,
+      detailKey: `${entry.seatIndex}-${entry.resource || "generic"}-${index}`,
+      channels: { visual: true, sound: true },
+      payload: {
+        seatIndex: entry.seatIndex,
+        resourceType: entry.resource || entry.resourceType || null,
+        amount: entry.amount,
+        cardDelta: entry.amount
+      }
+    }), { settings: currentFeelSettings });
+  });
+}
+
+function playFeelVisualCue(className, elements = [], duration = 560) {
+  const targets = elements.filter(Boolean);
+  if (!targets.length) return;
+  const reduced = getEffectiveFeelSettings().effectiveMotion === "reduced";
+  targets.forEach((element) => {
+    element.classList.remove(className);
+    void element.offsetWidth;
+    element.classList.add(className);
+    if (!reduced) {
+      window.setTimeout(() => element.classList.remove(className), duration);
+    }
+  });
+}
+
+function pendingActionCueType(view = game.pendingActionView) {
+  if (!view) return null;
+  if (view.type === "discardForSeven") return "discardPendingStarted";
+  if (view.type === "moveRobber") return "robberMovePendingStarted";
+  if (view.type === "chooseRobberVictim") return "robberVictimPendingStarted";
+  return null;
+}
+
+function pendingActionCueDetail(view = game.pendingActionView) {
+  if (!view) return "none";
+  return [
+    view.type || "unknown",
+    view.source || "unknown",
+    view.role || "waiting",
+    view.actorSeatIndex ?? "none",
+    view.fromTileId ?? view.tileId ?? "none",
+    view.remainingCount ?? "none"
+  ].join("-");
+}
+
+function emitPendingActionCue(view = game.pendingActionView, revision = null) {
+  const type = pendingActionCueType(view);
+  if (!type) return { played: false, reason: "no-pending-cue" };
+  const cue = makeRawCueCandidate(type, {
+    scopeId: makeCueScopeId(),
+    revision: revision ?? (isOnlinePlaying() ? onlineSession.revision : nextOfflineCueRevision()),
+    entityId: `seat-${view.role === "discarder" ? game.viewerSeatIndex : (view.actorSeatIndex ?? game.active)}`,
+    detailKey: pendingActionCueDetail(view),
+    visibility: "public",
+    channels: { visual: true, sound: view.role === "discarder" || view.role === "actor" },
+    payload: {
+      pendingType: view.type,
+      role: view.role || "waiting",
+      actorSeatIndex: view.actorSeatIndex ?? null,
+      remainingCount: view.remainingCount ?? null,
+      fromTileId: view.fromTileId ?? null,
+      tileId: view.tileId ?? null
+    }
+  });
+  const result = emitGameCue(cue, { settings: currentFeelSettings });
+  if (result.played) playFeelVisualCue("motion-alert-cue", [turnStagePanel, guideTitle, guideText], 520);
+  return result;
+}
+
+function emitRobberMovedCue({ actorSeatIndex = game.active, fromTileId = null, toTileId = robberTile, revision = null } = {}) {
+  const cue = makeRawCueCandidate("robberMoved", {
+    scopeId: makeCueScopeId(),
+    revision: revision ?? (isOnlinePlaying() ? onlineSession.revision : nextOfflineCueRevision()),
+    entityId: `tile-${toTileId}`,
+    detailKey: `${actorSeatIndex}-${fromTileId ?? "unknown"}-${toTileId}`,
+    visibility: "public",
+    channels: { visual: true, sound: true },
+    payload: { actorSeatIndex, fromTileId, toTileId }
+  });
+  const result = emitGameCue(cue, { settings: currentFeelSettings });
+  if (result.played) playFeelVisualCue("motion-robber-move", [svg?.querySelector(`[data-tile-id="${toTileId}"]`), turnStagePanel], 620);
+  return result;
+}
+
+function emitRobberResultCue(result, revision = null) {
+  if (!result) return { played: false, reason: "no-result" };
+  const cue = makeRawCueCandidate("robberResult", {
+    scopeId: makeCueScopeId(),
+    revision: revision ?? (isOnlinePlaying() ? onlineSession.revision : nextOfflineCueRevision()),
+    entityId: `seat-${result.actorSeatIndex ?? game.active}`,
+    detailKey: result.id || `${result.actorSeatIndex}-${result.victimSeatIndex ?? "none"}-${result.reason || "steal"}`,
+    visibility: "public",
+    channels: { visual: true, sound: true },
+    payload: {
+      actorSeatIndex: result.actorSeatIndex ?? game.active,
+      victimSeatIndex: result.victimSeatIndex ?? null,
+      resourceType: result.resource || result.resourceType || null,
+      reason: result.reason || null,
+      id: result.id || null
+    }
+  });
+  const cueResult = emitGameCue(cue, { settings: currentFeelSettings });
+  if (cueResult.played) playFeelVisualCue("motion-alert-cue", [turnStagePanel, guideTitle, guideText], 520);
+  return cueResult;
+}
+
+function actionFeedbackKey(kind, id) {
+  return `${kind}:${id ?? "none"}`;
+}
+
+function markActionFeedback(kind, id, className) {
+  const key = actionFeedbackKey(kind, id);
+  actionFeedbackRuntime.recent.set(key, className);
+  window.setTimeout(() => {
+    actionFeedbackRuntime.recent.delete(key);
+    render();
+  }, actionFeedbackRuntime.ttlMs);
+}
+
+function actionFeedbackClass(kind, id) {
+  return actionFeedbackRuntime.recent.get(actionFeedbackKey(kind, id)) || "";
+}
+
+function emitActionResultCue(type, data = {}) {
+  const cue = makeRawCueCandidate(type, {
+    scopeId: makeCueScopeId(),
+    revision: data.revision ?? (isOnlinePlaying() ? onlineSession.revision : nextOfflineCueRevision()),
+    entityId: data.entityId || `seat-${data.seatIndex ?? game.active}`,
+    detailKey: data.detailKey || "default",
+    visibility: "public",
+    channels: { visual: true, sound: true, log: false, toast: false },
+    payload: data.payload || {}
+  });
+  return emitGameCue(cue, { settings: currentFeelSettings });
+}
+
+function emitBuildCompletedCue(buildType, targetId, seatIndex = game.active, revision = null) {
+  const result = emitActionResultCue("buildCompleted", {
+    revision,
+    entityId: `${buildType}-${targetId}`,
+    detailKey: `${buildType}:${targetId}`,
+    seatIndex,
+    payload: { buildType, targetId, seatIndex }
+  });
+  if (result.played) {
+    markActionFeedback(buildType === "road" ? "edge" : "vertex", targetId, buildType === "road" ? "motion-road-draw" : "motion-build-pop");
+  }
+  return result;
+}
+
+function emitTradeCompletedCue(type, data = {}) {
+  const result = emitActionResultCue(type, {
+    revision: data.revision,
+    entityId: `seat-${data.seatIndex ?? game.active}`,
+    detailKey: data.detailKey || `${data.seatIndex ?? game.active}:${data.give || "offer"}:${data.get || "request"}:${data.createdAt || "local"}`,
+    seatIndex: data.seatIndex ?? game.active,
+    payload: data
+  });
+  if (result.played) playFeelVisualCue("motion-trade-swap", [playersList, tradeBox, turnStagePanel], 620);
+  return result;
+}
+
+function emitDevCardCue(type, data = {}) {
+  const result = emitActionResultCue(type, {
+    revision: data.revision,
+    entityId: `seat-${data.seatIndex ?? game.active}`,
+    detailKey: `${data.seatIndex ?? game.active}:${data.publicCardType || "generic"}:${data.createdAt || "local"}`,
+    seatIndex: data.seatIndex ?? game.active,
+    payload: {
+      seatIndex: data.seatIndex ?? game.active,
+      publicCardType: data.publicCardType || "generic",
+      cardDelta: data.cardDelta ?? (type === "devCardBought" ? 1 : 0)
+    }
+  });
+  if (result.played) playFeelVisualCue("motion-build-pop", [devCardPanel, turnStagePanel], 560);
+  return result;
+}
+
+function emitWinnerDeclaredCue(winnerSeatIndex, revision = null) {
+  const result = emitActionResultCue("winnerDeclared", {
+    revision,
+    entityId: `seat-${winnerSeatIndex}`,
+    detailKey: `winner:${winnerSeatIndex}`,
+    seatIndex: winnerSeatIndex,
+    payload: { winnerSeatIndex, publicScore: winnerSeatIndex === null ? null : totalPoints(game.players[winnerSeatIndex]) }
+  });
+  if (result.played) playFeelVisualCue("motion-win-highlight", [document.querySelector(`#seat${winnerSeatIndex}`), currentPlayerLabel, modalOverlay], 780);
+  return result;
+}
+
+function commandRejectedGroup(code = "") {
+  if (["NOT_ENOUGH_RESOURCES", "BANK_RESOURCE_EMPTY", "NO_PIECES"].includes(code)) return "resources";
+  if (["SOCKET_CLOSED", "SOCKET_ERROR", "REQUEST_TIMEOUT", "ROOM_NOT_FOUND", "ROOM_ENDED"].includes(code)) return "network";
+  return "rules";
+}
+
+function emitCommandRejectedCue(error, commandName = "local", detail = "generic") {
+  const code = error?.code || "LOCAL_REJECTED";
+  const group = commandRejectedGroup(code);
+  const result = emitActionResultCue("commandRejected", {
+    revision: isOnlinePlaying() ? onlineSession.revision : nextOfflineCueRevision(),
+    entityId: `command-${commandName}`,
+    detailKey: `${commandName}:${code}:${detail || "generic"}`,
+    payload: { commandName, code, group, message: error?.message || "" }
+  });
+  if (result.played) playFeelVisualCue("motion-command-rejected", [turnStagePanel, guideText, dicePanel], 520);
+  return result;
+}
+
+function rejectLocalAction(message, commandName, code = "INVALID_ACTION", detail = "generic") {
+  const error = new Error(message);
+  error.code = code;
+  emitCommandRejectedCue(error, commandName, detail);
+  addLog(message);
+  return false;
 }
 
 function produce(total) {
   const payouts = {};
+  const production = [];
   tiles.filter((tile) => tile.number === total && tile.id !== robberTile).forEach((tile) => {
     tile.vertexIds.forEach((vertexId) => {
       const vertex = vertices[vertexId];
@@ -2736,8 +4373,13 @@ function produce(total) {
       addLog(`${RESOURCES[type].name}: 은행 재고 부족으로 생산되지 않았습니다.`);
       return;
     }
-    entries.forEach((entry) => grantResourceFromBank(game.players[entry.playerId], type, entry.amount));
+    entries.forEach((entry) => {
+      grantResourceFromBank(game.players[entry.playerId], type, entry.amount);
+      production.push({ seatIndex: entry.playerId, resource: type, amount: entry.amount });
+    });
   });
+  game.lastProduction = production;
+  return production;
 }
 
 function roll() {
@@ -2748,11 +4390,13 @@ function roll() {
   }
   if (blockOnlineGameAction()) return;
   if (game.phase !== "play" || game.rolled || isResolvingForcedAction() || isBusyWithCardAction() || game.winner !== null) return;
+  completeDicePressForRoll();
   const dice = rollDice();
   game.lastDice = dice;
   renderDice();
   game.rolled = true;
   if (dice.total === 7) {
+    game.lastProduction = [];
     addLog(`${currentPlayer().name}: 주사위 ${dice.die1} + ${dice.die2} = 7.`);
     startDiscardForSeven();
   } else {
@@ -2774,12 +4418,27 @@ function startDiscardForSeven() {
   if (!game.pendingDiscards.length) {
     selectedAction = "robber";
     addLog("7이 나왔습니다. 도둑을 옮기세요.");
+    emitPendingActionCue({
+      type: "moveRobber",
+      source: "offline-seven",
+      actorSeatIndex: game.active,
+      role: "actor",
+      fromTileId: robberTile
+    });
     hideModal();
     return;
   }
 
   selectedAction = "discard";
   addLog("7이 나왔습니다. 8장 이상 보유자는 버릴 자원을 직접 선택해야 합니다.");
+  emitPendingActionCue({
+    type: "discardForSeven",
+    source: "offline-seven",
+    actorSeatIndex: game.active,
+    role: "discarder",
+    needed: game.pendingDiscards[0]?.needed || 0,
+    remainingCount: game.pendingDiscards.length
+  });
   showDiscardModal();
 }
 
@@ -2789,6 +4448,13 @@ function showDiscardModal() {
     selectedAction = "robber";
     hideModal();
     addLog("카드 버리기 완료. 도둑을 옮기세요.");
+    emitPendingActionCue({
+      type: "moveRobber",
+      source: "offline-seven",
+      actorSeatIndex: game.active,
+      role: "actor",
+      fromTileId: robberTile
+    });
     render();
     return;
   }
@@ -2797,6 +4463,17 @@ function showDiscardModal() {
   const selectedCount = Object.values(pending.selected).reduce((sum, amount) => sum + amount, 0);
   showModal("7 규칙: 카드 버리기", `${player.name}: ${pending.needed}장을 선택해 버리세요. 현재 ${selectedCount}/${pending.needed}장 선택했습니다.`);
 
+  const progressTrack = document.createElement("div");
+  progressTrack.className = "discard-progress";
+  progressTrack.setAttribute("role", "progressbar");
+  progressTrack.setAttribute("aria-valuemin", "0");
+  progressTrack.setAttribute("aria-valuemax", String(pending.needed));
+  progressTrack.setAttribute("aria-valuenow", String(selectedCount));
+  const progressBar = document.createElement("span");
+  const progressPercent = pending.needed > 0 ? Math.min(100, Math.round(selectedCount / pending.needed * 100)) : 0;
+  progressBar.style.width = `${progressPercent}%`;
+  progressTrack.append(progressBar);
+
   const grid = document.createElement("div");
   grid.className = "discard-grid";
   Object.entries(RESOURCES).forEach(([type, info]) => {
@@ -2804,7 +4481,7 @@ function showDiscardModal() {
     row.className = "discard-row";
 
     const label = document.createElement("span");
-    label.textContent = `${info.name} 보유 ${player.resources[type]}장`;
+    label.innerHTML = `${resourceIconToken(type)}<span>${escapeHtml(info.name)} 보유 ${player.resources[type]}장</span>`;
 
     const amount = document.createElement("strong");
     amount.textContent = pending.selected[type];
@@ -2845,7 +4522,7 @@ function showDiscardModal() {
     showDiscardModal();
   });
 
-  modalContent.append(grid);
+  modalContent.append(progressTrack, grid);
   modalActions.append(confirm);
 }
 
@@ -2861,14 +4538,38 @@ function moveRobber(tileId) {
   }
   if (blockOnlineGameAction()) return;
   if (tileId === robberTile) return addLog("도둑은 다른 타일로 이동해야 합니다.");
+  const fromTileId = robberTile;
   robberTile = tileId;
+  emitRobberMovedCue({ actorSeatIndex: currentPlayer().id, fromTileId, toTileId: tileId });
   const victims = [...new Set(tiles[tileId].vertexIds.map((id) => vertices[id].owner).filter((id) => id !== null && id !== currentPlayer().id && resourceCount(game.players[id]) > 0))];
   if (victims.length > 1) {
     game.pendingRobberVictims = victims;
     selectedAction = "robberVictim";
+    emitPendingActionCue({
+      type: "chooseRobberVictim",
+      source: "offline-seven",
+      actorSeatIndex: currentPlayer().id,
+      role: "actor",
+      tileId
+    });
     showRobberVictimModal();
   } else {
-    if (victims.length === 1) stealRandom(currentPlayer(), game.players[victims[0]]);
+    if (victims.length === 1) {
+      const resource = stealRandom(currentPlayer(), game.players[victims[0]]);
+      emitRobberResultCue({
+        actorSeatIndex: currentPlayer().id,
+        victimSeatIndex: victims[0],
+        resource,
+        id: `offline-${Date.now()}-${currentPlayer().id}-${victims[0]}`
+      });
+    } else {
+      emitRobberResultCue({
+        actorSeatIndex: currentPlayer().id,
+        victimSeatIndex: null,
+        reason: "NO_VICTIM",
+        id: `offline-${Date.now()}-${currentPlayer().id}-none`
+      });
+    }
     game.pendingRobberVictims = [];
     selectedAction = "road";
     hideModal();
@@ -2923,7 +4624,13 @@ function showRobberVictimModal() {
     button.className = "victim-button";
     button.textContent = `${victim.name} - 자원 ${resourceCount(victim)}장`;
     button.addEventListener("click", () => {
-      stealRandom(currentPlayer(), victim);
+      const resource = stealRandom(currentPlayer(), victim);
+      emitRobberResultCue({
+        actorSeatIndex: currentPlayer().id,
+        victimSeatIndex: victim.id,
+        resource,
+        id: `offline-${Date.now()}-${currentPlayer().id}-${victim.id}`
+      });
       game.pendingRobberVictims = [];
       selectedAction = "road";
       hideModal();
@@ -2935,11 +4642,12 @@ function showRobberVictimModal() {
 
 function stealRandom(thief, victim) {
   const pool = Object.keys(RESOURCES).filter((type) => victim.resources[type] > 0);
-  if (!pool.length) return;
+  if (!pool.length) return null;
   const type = pool[Math.floor(Math.random() * pool.length)];
   victim.resources[type] -= 1;
   thief.resources[type] += 1;
   addLog(`${thief.name}: ${victim.name}에게서 자원 1장을 가져왔습니다.`);
+  return type;
 }
 
 function buyDevCard() {
@@ -2952,6 +4660,7 @@ function buyDevCard() {
   const card = makeDevCard(devDeck.pop());
   player.dev.push(card);
   addLog(`${player.name}: 개발 카드 1장 구입.`);
+  emitDevCardCue("devCardBought", { seatIndex: player.id, cardDelta: 1 });
   checkWin();
   render();
 }
@@ -3013,6 +4722,7 @@ function playKnight(cardId) {
   } else {
     addLog(`${player.name}: 기사 사용. 도둑을 옮기세요.`);
   }
+  emitDevCardCue("devCardPlayed", { seatIndex: player.id, publicCardType: "knight" });
   render();
 }
 
@@ -3026,6 +4736,7 @@ function playRoadBuilding(cardId) {
   game.pendingFreeRoads = Math.min(2, player.roads);
   selectedAction = "roadBuilding";
   addLog(`${player.name}: 도로 건설 카드 사용. 무료 도로 ${game.pendingFreeRoads}개를 놓으세요.`);
+  emitDevCardCue("devCardPlayed", { seatIndex: player.id, publicCardType: "roadBuilding" });
   render();
 }
 
@@ -3044,7 +4755,8 @@ function showYearPlentyModal(cardId) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "victim-button";
-    button.textContent = `${info.name} (${game.bank[type]}장)`;
+    button.innerHTML = `${resourceIconToken(type)}<span>${escapeHtml(info.name)} (${game.bank[type]}장)</span>`;
+    button.setAttribute("aria-label", `${info.name} ${game.bank[type]}장`);
     button.disabled = game.bank[type] <= 0;
     button.addEventListener("click", () => {
       if (selected.length >= 2) return;
@@ -3056,6 +4768,7 @@ function showYearPlentyModal(cardId) {
         if (!card) return;
         selected.forEach((resource) => grantResourceFromBank(player, resource, 1));
         addLog(`${player.name}: 풍년 카드로 자원 2장 획득.`);
+        emitDevCardCue("devCardPlayed", { seatIndex: player.id, publicCardType: "yearPlenty" });
         render();
       }
     });
@@ -3072,7 +4785,7 @@ function harborName(type) {
 }
 
 function harborShortName(type) {
-  return type === "generic" ? "◆ 3:1" : `${RESOURCES[type].icon} 2:1`;
+  return type === "generic" ? "3:1" : `${RESOURCES[type].name} 2:1`;
 }
 
 function playerHarbors(playerId) {
@@ -3108,7 +4821,8 @@ function showMonopolyModal(cardId) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "victim-button";
-    button.textContent = info.name;
+    button.innerHTML = `${resourceIconToken(type)}<span>${escapeHtml(info.name)}</span>`;
+    button.setAttribute("aria-label", info.name);
     button.addEventListener("click", () => {
       const card = markDevCardUsed(player, cardId);
       if (!card) return;
@@ -3120,6 +4834,7 @@ function showMonopolyModal(cardId) {
         other.resources[type] = 0;
       });
       addLog(`${player.name}: 독점 카드로 ${info.name} ${gained}장 획득.`);
+      emitDevCardCue("devCardPlayed", { seatIndex: player.id, publicCardType: "monopoly" });
       render();
     });
     modalContent.append(button);
@@ -3194,6 +4909,7 @@ async function bankTrade(give, get) {
   game.bank[give] += ratio;
   grantResourceFromBank(player, get, 1);
   addLog(`${player.name}: ${RESOURCES[give].name} ${ratio}장을 ${RESOURCES[get].name} 1장으로 교환했습니다.`);
+  emitTradeCompletedCue("bankTradeCompleted", { seatIndex: player.id, give, get, ratio, createdAt: Date.now() });
   hideModal();
   render();
 }
@@ -3295,7 +5011,8 @@ function showBankTradeModal() {
     const giveButton = document.createElement("button");
     giveButton.type = "button";
     giveButton.dataset.resource = type;
-    giveButton.innerHTML = `<span>${info.icon} ${info.name}</span><small>보유 ${player.resources?.[type] || 0} / ${ratios[type]}:1</small>`;
+    giveButton.innerHTML = `<span>${resourceIconToken(type)}${escapeHtml(info.name)}</span><small>보유 ${player.resources?.[type] || 0} / ${ratios[type]}:1</small>`;
+    giveButton.setAttribute("aria-label", `${info.name} 주기, 보유 ${player.resources?.[type] || 0}장`);
     giveButton.addEventListener("click", () => {
       selectedGive = type;
       if (selectedGet === type) selectedGet = "";
@@ -3306,7 +5023,8 @@ function showBankTradeModal() {
     const getButton = document.createElement("button");
     getButton.type = "button";
     getButton.dataset.resource = type;
-    getButton.innerHTML = `<span>${info.icon} ${info.name}</span><small>은행 ${game.bank?.[type] || 0}</small>`;
+    getButton.innerHTML = `<span>${resourceIconToken(type)}${escapeHtml(info.name)}</span><small>은행 ${game.bank?.[type] || 0}</small>`;
+    getButton.setAttribute("aria-label", `${info.name} 받기, 은행 ${game.bank?.[type] || 0}장`);
     getButton.addEventListener("click", () => {
       selectedGet = type;
       refresh();
@@ -3348,6 +5066,22 @@ function resourceBundleText(bundle = {}) {
   return entries.map(([type, amount]) => resourceAmountText(type, amount)).join(", ");
 }
 
+function resourceBundleCostHtml(bundle = {}) {
+  const entries = Object.entries(bundle).filter(([, amount]) => Number(amount) > 0);
+  if (!entries.length) return "없음";
+  return entries.map(([type, amount]) => {
+    const safeType = escapeHtml(type);
+    const name = escapeHtml(resourceDisplayName(type));
+    const count = Number(amount) || 0;
+    const cards = Array.from({ length: count }, (_, index) => `
+      <span class="cost-resource-card resource-${safeType}" title="${name}" aria-label="${name} 카드 ${index + 1}/${count}">
+        ${resourceIconToken(type)}
+      </span>
+    `).join("");
+    return `<span class="cost-card-stack" aria-label="${name} ${count}장">${cards}</span>`;
+  }).join("");
+}
+
 function resourceBundleShortfall(player, bundle = {}) {
   return Object.entries(bundle)
     .filter(([, amount]) => Number(amount) > 0)
@@ -3381,18 +5115,16 @@ function setTradeWarning(warning, text) {
 function createResourceBundleEditor(title, bundle, { owner = null, onChange = () => {}, maxByOwner = false } = {}) {
   const group = document.createElement("div");
   group.className = "trade-resource-group";
-  const heading = document.createElement("strong");
-  heading.textContent = title;
-  group.append(heading);
+  group.setAttribute("aria-label", title);
 
   Object.entries(RESOURCES).forEach(([type, info]) => {
     const row = document.createElement("div");
     row.className = "trade-resource-row";
     const label = document.createElement("span");
     const owned = owner?.resources?.[type] ?? null;
-    label.textContent = owned === null
-      ? resourceDisplayName(type)
-      : `${resourceDisplayName(type)} (보유 ${owned})`;
+    label.innerHTML = owned === null
+      ? `${resourceIconToken(type)}<span class="trade-resource-name">${escapeHtml(info.name)}</span>`
+      : `${resourceIconToken(type)}<span class="trade-resource-name">${escapeHtml(info.name)}</span><small class="trade-resource-owned">보유 ${owned}</small>`;
     const minus = document.createElement("button");
     minus.type = "button";
     minus.textContent = "-";
@@ -3444,19 +5176,17 @@ function onlineViewerGamePlayer() {
 function showPlayerTradeResultModal(result) {
   if (!result || ["room-ended", "reconnect-waiting"].includes(onlineSession.modalKind)) return;
   onlineSession.lastPlayerTradeResultAt = result.createdAt || Date.now();
-  onlineSession.modalKind = "player-trade-result";
   if (result.type === "completed") {
-    showModal("거래 완료", `${onlinePlayerName(result.requesterPlayerId)}님과 ${onlinePlayerName(result.targetPlayerId)}님의 거래가 완료되었습니다.`);
-    const review = document.createElement("div");
-    review.className = "trade-review";
-    review.innerHTML = `<p>${onlinePlayerName(result.requesterPlayerId)} 제공: ${resourceBundleText(result.offer)}</p><p>${onlinePlayerName(result.targetPlayerId)} 제공: ${resourceBundleText(result.request)}</p>`;
-    modalContent.append(review);
+    setActionNotice(
+      "거래 완료",
+      `${onlinePlayerName(result.requesterPlayerId)}님과 ${onlinePlayerName(result.targetPlayerId)}님의 거래가 완료되었습니다. ${onlinePlayerName(result.requesterPlayerId)} 제공: ${resourceBundleText(result.offer)} / ${onlinePlayerName(result.targetPlayerId)} 제공: ${resourceBundleText(result.request)}`,
+      `player-trade-result-${result.createdAt || Date.now()}`
+    );
   } else if (result.type === "canceled") {
-    showModal("거래 취소", `${onlinePlayerName(result.requesterPlayerId)}님의 거래 요청이 취소되었습니다.`);
+    setActionNotice("거래 취소", `${onlinePlayerName(result.requesterPlayerId)}님의 거래 요청이 취소되었습니다.`, `player-trade-result-${result.createdAt || Date.now()}`);
   } else {
-    showModal("거래 취소", "자원 상태가 바뀌어 거래가 완료되지 않았습니다.");
+    setActionNotice("거래 취소", "자원 상태가 바뀌어 거래가 완료되지 않았습니다.", `player-trade-result-${result.createdAt || Date.now()}`);
   }
-  addModalButton("확인", hideModalThenShowNextOnlineNotice);
 }
 
 function showPendingPlayerTradeModal() {
@@ -3489,8 +5219,6 @@ function showOnlinePlayerTradeComposer({ trade = null, counter = null } = {}) {
   offerZone.className = "player-trade-zone player-trade-zone-offer";
   const requestZone = document.createElement("section");
   requestZone.className = "player-trade-zone player-trade-zone-request";
-  const summaryZone = document.createElement("section");
-  summaryZone.className = "player-trade-zone player-trade-zone-summary";
 
   const offerTitle = document.createElement("strong");
   offerTitle.className = "player-trade-zone-title";
@@ -3498,15 +5226,9 @@ function showOnlinePlayerTradeComposer({ trade = null, counter = null } = {}) {
   const requestTitle = document.createElement("strong");
   requestTitle.className = "player-trade-zone-title";
   requestTitle.textContent = "받을 자원";
-  const summaryTitle = document.createElement("strong");
-  summaryTitle.className = "player-trade-zone-title";
-  summaryTitle.textContent = "요약";
 
-  const summary = document.createElement("div");
-  summary.className = "trade-summary";
   const offerWarning = createTradeWarning();
   const requestWarning = createTradeWarning();
-  const summaryWarning = createTradeWarning();
   const submit = document.createElement("button");
   submit.type = "button";
   submit.textContent = trade ? "재요청" : "요청";
@@ -3523,10 +5245,9 @@ function showOnlinePlayerTradeComposer({ trade = null, counter = null } = {}) {
     ]);
     const requestMessage = requestEmpty ? "받을 자원을 선택하세요" : "";
     const responders = onlineSession.state?.players?.filter((entry) => entry.id !== onlineSession.playerId && !entry.left) || [];
-    summary.innerHTML = `<p>내가 줌: ${resourceBundleText(offer)}</p><p>내가 받음: ${resourceBundleText(request)}</p><p>대상: 모든 상대 (${responders.length}명)</p><p>상태: 제안 전</p>`;
+    submit.title = responders.length ? `대상: 모든 상대 ${responders.length}명` : "";
     setTradeWarning(offerWarning, offerMessage);
     setTradeWarning(requestWarning, requestMessage);
-    setTradeWarning(summaryWarning, tradeWarningText([offerMessage, requestMessage]));
     submit.disabled = offerEmpty || requestEmpty || offerShort || overlap.length > 0;
   }
 
@@ -3540,8 +5261,7 @@ function showOnlinePlayerTradeComposer({ trade = null, counter = null } = {}) {
     createResourceBundleEditor("받을 자원", request, { onChange: refresh }),
     requestWarning
   );
-  summaryZone.append(summaryTitle, summary, summaryWarning);
-  layout.append(offerZone, requestZone, summaryZone);
+  layout.append(offerZone, requestZone);
   modalContent.append(layout);
 
   const cancel = document.createElement("button");
@@ -3680,11 +5400,8 @@ function showCounterTradeModal(trade) {
   const counterOffer = emptyResourceBundle();
   const counterRequest = emptyResourceBundle();
   showModal("흥정 제안", "내가 원하는 거래 조건을 지정해 요청자에게 보냅니다.");
-  const summary = document.createElement("div");
-  summary.className = "trade-summary";
   const offerWarning = createTradeWarning();
   const requestWarning = createTradeWarning();
-  const summaryWarning = createTradeWarning();
   const submit = document.createElement("button");
   submit.type = "button";
   submit.textContent = "흥정 보내기";
@@ -3698,10 +5415,8 @@ function showCounterTradeModal(trade) {
       offerShort ? "자원이 없습니다" : ""
     ]);
     const requestMessage = requestEmpty ? "받을 자원을 선택하세요" : "";
-    summary.innerHTML = `<p>내가 줌: ${resourceBundleText(counterOffer)}</p><p>내가 받음: ${resourceBundleText(counterRequest)}</p>`;
     setTradeWarning(offerWarning, offerMessage);
     setTradeWarning(requestWarning, requestMessage);
-    setTradeWarning(summaryWarning, tradeWarningText([offerMessage, requestMessage]));
     submit.disabled = offerEmpty || requestEmpty || offerShort;
   }
 
@@ -3717,11 +5432,6 @@ function showCounterTradeModal(trade) {
   const requestTitle = document.createElement("strong");
   requestTitle.className = "player-trade-zone-title";
   requestTitle.textContent = "받을 자원";
-  const summaryZone = document.createElement("section");
-  summaryZone.className = "player-trade-zone";
-  const summaryTitle = document.createElement("strong");
-  summaryTitle.className = "player-trade-zone-title";
-  summaryTitle.textContent = "요약";
 
   offerZone.append(
     offerTitle,
@@ -3733,8 +5443,7 @@ function showCounterTradeModal(trade) {
     createResourceBundleEditor("받을 자원", counterRequest, { onChange: refresh }),
     requestWarning
   );
-  summaryZone.append(summaryTitle, summary, summaryWarning);
-  layout.append(offerZone, requestZone, summaryZone);
+  layout.append(offerZone, requestZone);
   modalContent.append(layout);
 
   addModalButton("뒤로", () => showResponderPendingTradeModal(trade));
@@ -3794,7 +5503,8 @@ function showOnlineYearPlentyModal(cardId) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "victim-button";
-    button.textContent = `${info.name} (${game.bank[type]}장)`;
+    button.innerHTML = `${resourceIconToken(type)}<span>${escapeHtml(info.name)} (${game.bank[type]}장)</span>`;
+    button.setAttribute("aria-label", `${info.name} ${game.bank[type]}장`);
     button.disabled = game.bank[type] <= 0;
     button.addEventListener("click", () => {
       if (selected.length >= 2) return;
@@ -3818,7 +5528,8 @@ function showOnlineMonopolyModal(cardId) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "victim-button";
-    button.textContent = info.name;
+    button.innerHTML = `${resourceIconToken(type)}<span>${escapeHtml(info.name)}</span>`;
+    button.setAttribute("aria-label", info.name);
     button.addEventListener("click", () => playOnlineDevCard(cardId, { resource: type }));
     modalContent.append(button);
   });
@@ -3877,7 +5588,7 @@ function showPlayerTradeModal() {
       const row = document.createElement("div");
       row.className = "trade-resource-row";
       const label = document.createElement("span");
-      label.textContent = `${info.name} (보유 ${owner.resources[type]})`;
+      label.innerHTML = `${resourceIconToken(type)}<span>${escapeHtml(info.name)} (보유 ${owner.resources[type]})</span>`;
       const minus = document.createElement("button");
       minus.type = "button";
       minus.textContent = "-";
@@ -4034,10 +5745,13 @@ function checkWin() {
   if (player && totalPoints(player) >= 10 && game.phase === "play") {
     game.winner = player.id;
     addLog(`${player.name} 승리! 10점 달성.`);
+    emitWinnerDeclaredCue(player.id);
+    showVictoryModal(player.id);
   }
 }
 
 function startGame() {
+  resetOfflineCueScope();
   const count = Number(playerCount.value);
   game.players = Array.from({ length: count }, (_, i) => freshPlayer(document.querySelector(`#name${i}`).value.trim() || `플레이어 ${i + 1}`, i));
   game.active = 0;
@@ -4061,6 +5775,7 @@ function startGame() {
   game.winner = null;
   game.winnerSummary = null;
   game.viewerSeatIndex = null;
+  shownVictoryModalKey = null;
   selectedAction = "settlement";
   renderDice();
   logEl.replaceChildren();
@@ -4073,6 +5788,7 @@ function startGame() {
 }
 
 function resetToSetup() {
+  resetOfflineCueScope();
   showOfflineSetup();
   game.players = [];
   game.pendingDiscards = [];
@@ -4088,6 +5804,7 @@ function resetToSetup() {
   game.winner = null;
   game.winnerSummary = null;
   game.viewerSeatIndex = null;
+  shownVictoryModalKey = null;
   selectedAction = "road";
   renderDice();
   hideModal();
@@ -4097,8 +5814,28 @@ function resetToSetup() {
 }
 
 function guideFor() {
+  const notice = currentActionNotice();
+  if (notice) return notice;
   const ux = currentTurnUxState();
   return [ux.guideTitle, ux.guideText];
+}
+
+function canTargetRobberTile(tile) {
+  if (!tile || tile.id === robberTile) return false;
+  if (selectedAction === "robber") return true;
+  return isOnlinePlayPhase()
+    && game.pendingActionView?.type === "moveRobber"
+    && game.pendingActionView.role === "actor";
+}
+
+function isRobberMoveWaitingTile(tile) {
+  return Boolean(
+    tile
+    && tile.id !== robberTile
+    && isOnlinePlayPhase()
+    && game.pendingActionView?.type === "moveRobber"
+    && game.pendingActionView.role !== "actor"
+  );
 }
 
 function drawTile(tile) {
@@ -4106,19 +5843,24 @@ function drawTile(tile) {
   const isRolledTile = game.lastDice?.total !== 7 && tile.number === game.lastDice?.total;
   const isBlockedRoll = isRolledTile && tile.id === robberTile;
   const hasRobber = tile.id === robberTile;
-  const isRobberTarget = selectedAction === "robber" && tile.id !== robberTile;
-  const className = [`hex`, tile.type, hasRobber ? "robber-occupied" : "", isRolledTile ? "rolled" : "", isBlockedRoll ? "blocked-roll" : "", isRobberTarget ? "robber-target" : ""].filter(Boolean).join(" ");
+  const isRobberTarget = canTargetRobberTile(tile);
+  const isRobberDisabledTarget = isRobberMoveWaitingTile(tile);
+  const className = [
+    `hex`,
+    tile.type,
+    hasRobber ? "robber-occupied is-robber-current" : "",
+    isRolledTile ? "rolled" : "",
+    isBlockedRoll ? "blocked-roll" : "",
+    isRobberTarget ? "robber-target is-robber-target" : "",
+    isRobberDisabledTarget ? "is-robber-disabled-target" : ""
+  ].filter(Boolean).join(" ");
   const poly = createSvg("polygon", { class: className, "data-tile-id": tile.id, points: tile.corners.map((p) => `${p.x},${p.y}`).join(" ") });
   poly.addEventListener("click", () => {
-    if (selectedAction === "robber") moveRobber(tile.id);
+    if (canTargetRobberTile(tile)) moveRobber(tile.id);
   });
   group.append(poly);
   group.append(drawTileTexture(tile));
   if (hasRobber) group.append(drawRobberOverlay(tile));
-  const name = tile.type === "desert" ? "사막" : RESOURCES[tile.type].name;
-  const label = createSvg("text", { x: tile.x, y: tile.y - 24, class: "tile-name" });
-  label.textContent = name;
-  group.append(label);
   if (tile.number) {
     group.append(drawNumberToken(tile, isRolledTile, isBlockedRoll));
   }
@@ -4133,7 +5875,7 @@ function drawNumberToken(tile, isRolledTile, isBlockedRoll) {
     isRolledTile ? "rolled" : "",
     isBlockedRoll ? "blocked-roll" : ""
   ].filter(Boolean).join(" ");
-  const group = createSvg("g", { class: className, transform: `translate(${tile.x} ${tile.y + 8})` });
+  const group = createSvg("g", { class: className, transform: `translate(${tile.x} ${tile.y})` });
   group.append(createSvg("circle", { class: "number-token-shadow", cx: 0, cy: 3, r: 25 }));
   group.append(createSvg("circle", { class: "number-token-base", cx: 0, cy: 0, r: 24 }));
   group.append(createSvg("circle", { class: "number-token-inner", cx: 0, cy: 0, r: 17 }));
@@ -4205,7 +5947,7 @@ function drawTileTexture(tile) {
 function drawRobberOverlay(tile) {
   const group = createSvg("g", { class: `robber-overlay ${selectedAction === "robber" ? "moving" : ""}` });
   group.append(createSvg("polygon", { class: "robber-overlay-wash", points: tile.corners.map((p) => `${p.x},${p.y}`).join(" ") }));
-  group.append(createSvg("circle", { class: "robber-overlay-ring", cx: tile.x, cy: tile.y + 8, r: 34 }));
+  group.append(createSvg("circle", { class: "robber-overlay-ring", cx: tile.x, cy: tile.y, r: 34 }));
   tile.corners.forEach((corner) => {
     const start = {
       x: corner.x * 0.9 + tile.x * 0.1,
@@ -4312,9 +6054,10 @@ function edgeTransform(edge) {
 function drawRoadPiece(edge, color) {
   const { midX, midY, length, angle } = edgeTransform(edge);
   const group = createSvg("g", {
-    class: "road-token",
+    class: ["road-token", actionFeedbackClass("edge", edge.id)].filter(Boolean).join(" "),
     transform: `translate(${midX} ${midY}) rotate(${angle})`
   });
+  group.dataset.edge = edge.id;
   const shadow = createSvg("rect", {
     class: "road-token-shadow",
     x: -length * 0.34,
@@ -4417,7 +6160,7 @@ function createBuilding(vertex) {
   const owner = game.players[vertex.owner];
   const ownerColor = owner.color;
   const group = createSvg("g", {
-    class: `vertex building ${vertex.city ? "city-piece" : "settlement-piece"}`,
+    class: [`vertex building ${vertex.city ? "city-piece" : "settlement-piece"}`, actionFeedbackClass("vertex", vertex.id)].filter(Boolean).join(" "),
     transform: `translate(${vertex.x} ${vertex.y})`
   });
   group.dataset.vertex = vertex.id;
@@ -4440,17 +6183,25 @@ function createBuilding(vertex) {
 }
 
 function drawModernSettlementIcon(color) {
-  const group = createSvg("g", { class: "building-icon settlement-icon" });
-  group.append(createSvg("path", { class: "building-icon-fill", d: "M-11,1 L0,-9 L11,1 L8,1 L8,10 L-8,10 L-8,1 Z", fill: color }));
-  group.append(createSvg("path", { class: "building-icon-cut", d: "M-2,10 L-2,4 L3,4 L3,10 Z" }));
-  return group;
+  return drawBoardTablerIcon("home", color, "settlement-icon", "translate(-12 -12)");
 }
 
 function drawModernCityIcon(color) {
-  const group = createSvg("g", { class: "building-icon city-icon" });
-  group.append(createSvg("rect", { class: "building-icon-fill", x: -12, y: -1, width: 7, height: 13, rx: 1.5, fill: color }));
-  group.append(createSvg("rect", { class: "building-icon-fill", x: -3, y: -10, width: 7, height: 22, rx: 1.5, fill: color }));
-  group.append(createSvg("rect", { class: "building-icon-fill", x: 6, y: -5, width: 7, height: 17, rx: 1.5, fill: color }));
+  return drawBoardTablerIcon("building-community", color, "city-icon", "translate(-15 -15) scale(1.25)");
+}
+
+function drawBoardTablerIcon(iconKey, color, className, transform) {
+  const group = createSvg("g", {
+    class: `building-icon ${className}`,
+    transform,
+    fill: "none",
+    stroke: "currentColor",
+    "stroke-width": "2",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round"
+  });
+  group.style.color = color;
+  group.innerHTML = TABLER_ICON_PATHS[iconKey] || "";
   return group;
 }
 
@@ -4503,17 +6254,106 @@ function drawHarbors() {
 function renderResourceBreakdown(player) {
   if (!player.resources) return renderResourceSummary(player);
   return Object.entries(RESOURCES)
-    .map(([key, info]) => `<div class="mini-card">${info.icon}<strong>${player.resources[key]}</strong></div>`)
+    .map(([key, info]) => `<div class="mini-card resource-mini-card" title="${escapeHtml(info.name)}" aria-label="${escapeHtml(`${info.name} ${player.resources[key]}장`)}">${resourceIconToken(key)}<strong>${player.resources[key]}</strong></div>`)
     .join("");
 }
 
 function renderResourceSummary(player) {
-  return `<div class="mini-card summary">자원<strong>${resourceCount(player)}</strong></div>`;
+  return `<div class="mini-card summary" title="자원" aria-label="자원 ${resourceCount(player)}장">${resourceIconToken("generic")}<strong>${resourceCount(player)}</strong></div>`;
 }
 
 function renderDevSummary(player) {
   const count = Array.isArray(player.dev) ? player.dev.length : Number(player.devCount || 0);
-  return `<div class="mini-card summary">개발<strong>${count}</strong></div>`;
+  return `<div class="mini-card summary" title="개발 카드" aria-label="개발 카드 ${count}장">${actionIconToken("devCard")}<strong>${count}</strong></div>`;
+}
+
+function handViewerPlayer() {
+  if (!game.players?.length) return null;
+  if (!onlineSession.enabled) return currentPlayer() || null;
+  if (!isOnlinePlaying()) return null;
+  if (Number.isInteger(game.viewerSeatIndex) && game.players[game.viewerSeatIndex]) {
+    return game.players[game.viewerSeatIndex];
+  }
+  const onlinePlayerId = onlineSession.playerId;
+  if (!onlinePlayerId) return null;
+  const publicPlayer = onlineSession.state?.players?.find((entry) => entry.id === onlinePlayerId);
+  const seatIndex = publicPlayer?.seatIndex ?? publicPlayer?.seat ?? publicPlayer?.gameSeatIndex;
+  if (Number.isInteger(seatIndex) && game.players[seatIndex]) return game.players[seatIndex];
+  return game.players.find((player) => player.onlinePlayerId === onlinePlayerId || player.playerId === onlinePlayerId) || null;
+}
+
+function resourceHandCardHtml(type, amount) {
+  const resource = RESOURCES[type] || { name: type };
+  const safeName = escapeHtml(resource.name);
+  const count = Math.max(0, Number(amount) || 0);
+  return `
+    <article class="hand-resource-card resource-${type}" role="listitem" aria-label="${safeName} ${count}장">
+      <span class="hand-card-icon" aria-hidden="true">${resourceIconToken(type)}</span>
+      <span class="hand-card-name">${safeName}</span>
+      <strong class="hand-card-count">${count}</strong>
+    </article>
+  `;
+}
+
+function renderResourceHandCards(player) {
+  if (!player?.resources) return "";
+  return Object.keys(RESOURCES)
+    .map((type) => resourceHandCardHtml(type, player.resources[type]))
+    .join("");
+}
+
+function devHandCardHtml(type, amount, usable = false) {
+  const safeName = escapeHtml(devCardName(type));
+  const count = Math.max(0, Number(amount) || 0);
+  const stateText = usable ? "사용 가능" : "대기";
+  return `
+    <article class="hand-resource-card hand-dev-card dev-${type} ${usable ? "is-usable" : "is-waiting"}" role="listitem" aria-label="${safeName} ${count}장, ${stateText}">
+      <span class="hand-card-icon" aria-hidden="true">${devCardIconToken(type)}</span>
+      <span class="hand-card-name">${safeName}</span>
+      <strong class="hand-card-count">${count}</strong>
+    </article>
+  `;
+}
+
+function renderDevHandCards(player) {
+  if (!Array.isArray(player?.dev) || !player.dev.length) return "";
+  const usableTypes = new Set(usableDevCards(player).map((card) => card.type));
+  const counts = player.dev.reduce((acc, card) => {
+    acc[card.type] = (acc[card.type] || 0) + 1;
+    return acc;
+  }, {});
+  return Object.entries(counts)
+    .map(([type, count]) => devHandCardHtml(type, count, usableTypes.has(type)))
+    .join("");
+}
+
+function renderPlayerHandDock() {
+  if (!playerHandDock || !playerResourceHand) return;
+  const player = handViewerPlayer();
+  if (!player?.resources) {
+    playerResourceHand.replaceChildren();
+    playerHandDock.classList.add("hidden");
+    playerHandDock.classList.remove("is-expanded");
+    playerHandDock.removeAttribute("data-player-id");
+    playerHandToggle?.setAttribute("aria-expanded", "false");
+    return;
+  }
+  playerHandDock.classList.remove("hidden");
+  const effectiveExpanded = playerHandExpanded || isMobileViewport();
+  playerHandDock.classList.toggle("is-expanded", effectiveExpanded);
+  playerHandDock.dataset.playerId = String(player.id);
+  playerHandToggle?.setAttribute("aria-expanded", effectiveExpanded ? "true" : "false");
+  if (playerHandToggle) {
+    playerHandToggle.textContent = effectiveExpanded ? "접기" : "펼치기";
+  }
+  if (playerHandOwner) {
+    playerHandOwner.textContent = playerDisplayName(player);
+  }
+  playerResourceHand.innerHTML = `${renderResourceHandCards(player)}${renderDevHandCards(player)}`;
+}
+
+function playerHasRecentProduction(playerId) {
+  return Boolean(game.lastProduction?.some((entry) => entry.seatIndex === playerId && Number(entry.amount) > 0));
 }
 
 function renderSeats() {
@@ -4535,19 +6375,21 @@ function renderSeats() {
     seat.classList.toggle("is-pending-actor", pendingIds.has(player.id));
     seat.classList.toggle("is-bot-turn", player.isBot && player.id === focusId);
     seat.classList.toggle("is-waiting-turn", player.id !== focusId && !pendingIds.has(player.id));
+    seat.classList.toggle("motion-resource-bump", playerHasRecentProduction(player.id));
     seat.style.setProperty("--player-color", player.color);
     const isViewer = !isOnlinePlaying() || player.id === game.viewerSeatIndex;
-    const statusLabel = playerStatusLabel(player, ux);
     seat.innerHTML = `
-      <div class="seat-head">
-        <i class="dot" style="background:${player.color}"></i>
-        <span class="seat-name">${player.name}${botBadgeHtml(player)}</span>
-        <strong class="vp">${pointBadgeHtml(player, isViewer)}</strong>
+      <div class="seat-main">
+        <div class="seat-identity">
+          <span class="dot score-dot ${String(activeScoreTooltipPlayerId) === String(player.id) ? "is-score-tooltip-open" : ""}" style="background:${player.color}" ${scoreBadgeAttributes(player, isViewer)}>${pointBadgeNumber(player, isViewer)}</span>
+          <span class="seat-name">${player.name}${botBadgeHtml(player)}</span>
+        </div>
       </div>
-      <small class="player-state-label">${statusLabel}</small>
-      <div class="hand">
-        ${isViewer ? renderResourceBreakdown(player) : renderResourceSummary(player)}
-        ${renderDevSummary(player)}
+      <div class="seat-stats">
+        <div class="hand">
+          ${renderResourceSummary(player)}
+          ${renderDevSummary(player)}
+        </div>
       </div>
     `;
   }
@@ -4567,20 +6409,73 @@ function renderPlayers() {
       ux.online && player.id === ux.viewerSeatIndex && ux.kind === "my-turn" ? "is-my-turn" : "",
       pendingIds.has(player.id) ? "is-pending-actor" : "",
       player.isBot && player.id === focusId ? "is-bot-turn" : "",
-      player.id !== focusId && !pendingIds.has(player.id) ? "is-waiting-turn" : ""
+      player.id !== focusId && !pendingIds.has(player.id) ? "is-waiting-turn" : "",
+      playerHasRecentProduction(player.id) ? "motion-resource-bump" : ""
     ].filter(Boolean).join(" ");
+    row.dataset.playerId = String(player.id);
     const revealHidden = !isOnlinePlaying() ? index === game.active : player.id === game.viewerSeatIndex;
     row.innerHTML = `
-      <i class="dot" style="background:${player.color}"></i>
+      <span class="dot score-dot ${String(activeScoreTooltipPlayerId) === String(player.id) ? "is-score-tooltip-open" : ""}" style="background:${player.color}" ${scoreBadgeAttributes(player, revealHidden)}>${pointBadgeNumber(player, revealHidden)}</span>
       <span>${player.name}${botBadgeHtml(player)}</span>
       <b>카드 ${resourceCount(player)}장</b>
-      <strong class="score-text">${pointBadgeHtml(player, revealHidden)}</strong>
     `;
     const status = document.createElement("small");
     status.className = "player-state-label";
-    status.textContent = playerStatusLabel(player, ux);
+    status.innerHTML = playerStatusHtml(player, ux);
     row.append(status);
     playersList.append(row);
+  });
+}
+
+function makeTurnFeedbackCue(ux) {
+  const focusPlayer = ux.currentFocusPlayer;
+  if (!focusPlayer || ux.blocking) return null;
+  const pendingIds = ux.pendingActors.map((player) => player.id).sort((a, b) => a - b).join("-");
+  const eventType = pendingIds ? "pendingStarted" : "turnChanged";
+  const scopeId = makeCueScopeId();
+  const revision = isOnlinePlaying()
+    ? onlineSession.revision
+    : `${game.round}-${game.active}-${game.phase}-${game.rolled ? "rolled" : "waiting"}-${pendingIds || "none"}`;
+  return makeRawCueCandidate(eventType, {
+    scopeId,
+    revision,
+    eventType,
+    entityId: `seat-${focusPlayer.id}`,
+    detailKey: `${ux.kind}-${pendingIds || "active"}`,
+    visibility: "public",
+    source: "stateDelta",
+    channels: {
+      visual: true,
+      sound: eventType === "turnChanged" && ux.kind === "my-turn",
+      log: false,
+      toast: false
+    },
+    payload: {
+      seatIndex: focusPlayer.id,
+      state: ux.kind,
+      pendingActorSeatIndexes: pendingIds
+    }
+  });
+}
+
+function pulseTurnFeedback(ux) {
+  const cue = makeTurnFeedbackCue(ux);
+  if (!cue) return;
+  const result = emitGameCue(cue, { settings: currentFeelSettings });
+  if (!result.played) return;
+  if (getEffectiveFeelSettings().effectiveMotion === "reduced") return;
+  const focusId = ux.currentFocusPlayer?.id;
+  const targets = [
+    document.querySelector(`#seat${focusId}`),
+    playersList.querySelector(`.player-row[data-player-id="${focusId}"]`),
+    currentPlayerLabel,
+    dicePanel
+  ].filter(Boolean);
+  targets.forEach((element) => {
+    element.classList.remove("motion-turn-pulse");
+    void element.offsetWidth;
+    element.classList.add("motion-turn-pulse");
+    window.setTimeout(() => element.classList.remove("motion-turn-pulse"), 520);
   });
 }
 
@@ -4600,41 +6495,55 @@ function playerStatusLabel(player, ux = currentTurnUxState()) {
   return "대기";
 }
 
-function infoChip(label, value, wide = false) {
-  return `<div class="info-chip ${wide ? "wide" : ""}">${label}<strong>${value}</strong></div>`;
+function playerStatusTokenKey(player, ux = currentTurnUxState()) {
+  if (!player) return "waiting";
+  if (ux.blocking && player.id === ux.currentFocusPlayer?.id) return "error";
+  if (ux.pendingActors.some((entry) => entry.id === player.id)) return player.isBot ? "bot" : "pending";
+  if (player.id === ux.currentFocusPlayer?.id) {
+    if (player.isBot) return "bot";
+    if (ux.online && player.id === ux.viewerSeatIndex && ux.kind === "my-turn") return "myTurn";
+    return "pending";
+  }
+  return "waiting";
+}
+
+function playerStatusHtml(player, ux = currentTurnUxState()) {
+  const label = playerStatusLabel(player, ux);
+  return `${statusIconToken(playerStatusTokenKey(player, ux))}<span>${escapeHtml(label)}</span>`;
+}
+
+function infoChip(label, value, wide = false, token = "") {
+  return `<div class="info-chip ${wide ? "wide" : ""}"><span class="info-chip-label">${token}${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
 }
 
 function renderTurnStage() {
   if (!turnStagePanel) return;
-  const ux = currentTurnUxState();
-  turnStagePanel.innerHTML = [
-    infoChip("상태", ux.headline, true),
-    infoChip("가능한 행동", ux.possibleAction),
-    infoChip("다음", ux.nextAction, true),
-    infoChip("라운드", game.round || "-"),
-    infoChip("차례", playerDisplayName(ux.activePlayer) || "-"),
-    infoChip("주사위", game.rolled ? "완료" : "대기")
-  ].join("");
+  turnStagePanel.innerHTML = infoChip("현재 라운드", game.round || "-", true);
 }
 
 function renderBankStock() {
   if (!bankStockPanel) return;
-  bankStockPanel.innerHTML = Object.entries(RESOURCES)
-    .map(([type, info]) => infoChip(info.name, `${game.bank[type]}장`))
-    .join("");
+  const devDeckCount = isOnlinePlaying()
+    ? Number(onlineSession.state?.matchState?.devDeckCount || 0)
+    : devDeck.length;
+  bankStockPanel.innerHTML = [
+    ...Object.entries(RESOURCES)
+      .map(([type, info]) => infoChip(info.name, `${game.bank[type]}장`, false, resourceIconToken(type))),
+    infoChip("개발 카드", `${devDeckCount}장`, false, actionIconToken("devCard"))
+  ].join("");
 }
 
 function renderCostReference() {
   if (!costReferencePanel) return;
   const rows = [
-    ["도로", COSTS.road],
-    ["마을", COSTS.settlement],
-    ["도시", COSTS.city],
-    ["개발", COSTS.dev]
+    ["도로", COSTS.road, "road"],
+    ["마을", COSTS.settlement, "settlement"],
+    ["도시", COSTS.city, "city"],
+    ["개발", COSTS.dev, "devCard"]
   ];
-  costReferencePanel.innerHTML = rows.map(([label, cost]) => {
-    const text = resourceBundleText(cost);
-    return `<div class="cost-row"><strong>${label}</strong><span>${text}</span></div>`;
+  costReferencePanel.innerHTML = rows.map(([label, cost, actionToken]) => {
+    const text = resourceBundleCostHtml(cost);
+    return `<div class="cost-row"><strong>${actionIconToken(actionToken)}<span>${label}</span></strong><span>${text}</span></div>`;
   }).join("");
 }
 
@@ -4702,6 +6611,23 @@ function buildActionDisabledReason(action) {
 function setActionButtonState(button, disabled, title = "") {
   button.disabled = Boolean(disabled);
   button.title = title || "";
+}
+
+function applyActionButtonIconTokens() {
+  if (rollButton && rollButton.dataset.iconReady !== "true") {
+    rollButton.innerHTML = actionIconToken("dice", { className: "roll-button-icon" });
+    rollButton.setAttribute("aria-label", "주사위 굴리기");
+    rollButton.dataset.iconReady = "true";
+  }
+  buildButtons.forEach((button) => {
+    if (button.dataset.iconReady === "true") return;
+    const action = button.dataset.action;
+    const token = ACTION_ICON_BY_BUTTON[action];
+    const label = ACTION_LABEL_BY_BUTTON[action] || button.textContent.trim();
+    button.innerHTML = `${actionIconToken(token)}<span class="action-button-label">${escapeHtml(label)}</span>`;
+    button.setAttribute("aria-label", label);
+    button.dataset.iconReady = "true";
+  });
 }
 
 function isBoardActionArmed() {
@@ -4784,6 +6710,7 @@ function initBoardZoom() {
     if (!isMobileViewport()) hideBoardZoomModal();
     renderBoardZoomButton();
   });
+  window.matchMedia?.(LANDSCAPE_PANEL_QUERY).addEventListener?.("change", syncFloatingPanelsForViewport);
 }
 
 function renderCurrentPlayerDevCards() {
@@ -4878,6 +6805,14 @@ function updatePrimaryActionHints(ux = currentTurnUxState()) {
   markPrimaryAction(endTurnButton, "soft");
 }
 
+function shouldHighlightDicePanel(ux = currentTurnUxState()) {
+  return ux.kind === "my-turn" && !ux.blocking && !game.pendingActionView && !isResolvingForcedAction() && !isBusyWithCardAction() && game.phase === "play" && game.winner === null;
+}
+
+function shouldPulseDicePanel(ux = currentTurnUxState()) {
+  return shouldHighlightDicePanel(ux) && !game.rolled && !rollButton?.disabled;
+}
+
 function renderControls() {
   renderSessionButtons();
   buildButtons.forEach((button) => button.classList.toggle("active", button.dataset.action === selectedAction));
@@ -4927,7 +6862,7 @@ function renderControls() {
 
 function renderTradeOptions() {
   if (!tradeGive || !tradeGet) return;
-  const options = Object.entries(RESOURCES).map(([key, info]) => `<option value="${key}">${info.name}</option>`).join("");
+  const options = Object.keys(RESOURCES).map((key) => `<option value="${key}">${escapeHtml(resourceDisplayName(key))}</option>`).join("");
   tradeGive.innerHTML = options;
   tradeGet.innerHTML = options;
   updateTradeRatioLabel();
@@ -4943,6 +6878,41 @@ function updateTradeRatioLabel() {
 
 function installTestHelpers() {
   const params = new URLSearchParams(window.location.search);
+  window.__katanFeelTest = {
+    makeCueKey,
+    makeCueScopeId,
+    nextOfflineCueRevision,
+    resetPlayedCueKeys,
+    hasPlayedCue,
+    markCuePlayed,
+    makeRawCueCandidate,
+    sanitizeCueForViewer,
+    shouldPlayCue,
+    emitGameCue,
+    dispatchGameCue,
+    sanitizeFeelSettings,
+    loadFeelSettings,
+    saveFeelSettings,
+    getEffectiveFeelSettings,
+    applyFeelSettings,
+    enableSoundEffects,
+    playSoundCue,
+    setSoundVolume,
+    getAudioRuntimeState,
+    mapCueToSound,
+    getSoundEventMap: () => ({ ...SOUND_EVENT_MAP }),
+    getSoundAssetKeys: () => [...SOUND_ASSET_KEYS],
+    preloadSoundAssets,
+    stopAllSounds,
+    suppressHydrateCueScope,
+    isHydrateCueSuppressed,
+    getPlayedCueKeys: () => [...feelCueRuntime.playedCueKeys.keys()],
+    getDefaultSettings: () => ({ ...DEFAULT_FEEL_SETTINGS }),
+    getCurrentSettings: () => ({ ...currentFeelSettings }),
+    hashStringToUint32,
+    seededRange,
+    makeDiceMotionStyle
+  };
   if (params.get("test") !== "1") return;
 
   window.__katanTest = {
@@ -4993,9 +6963,15 @@ function installTestHelpers() {
       render();
       return true;
     },
-    forceRoll(die1, die2) {
+    forceRoll(die1, die2, animationSeed = "test-dice-motion") {
       if (game.phase !== "play" || game.rolled || game.winner !== null) return false;
-      const dice = { die1: Number(die1), die2: Number(die2), total: Number(die1) + Number(die2) };
+      const dice = {
+        die1: Number(die1),
+        die2: Number(die2),
+        total: Number(die1) + Number(die2),
+        animationSeed: String(animationSeed),
+        rollId: `test-${animationSeed}-${die1}-${die2}`
+      };
       if (dice.die1 < 1 || dice.die1 > 6 || dice.die2 < 1 || dice.die2 > 6) return false;
       game.lastDice = dice;
       renderDice();
@@ -5058,18 +7034,22 @@ function installTestHelpers() {
 function render() {
   if (!tiles.length) setupBoard();
   const ux = currentTurnUxState();
+  syncResponsivePanelPlacement();
   updateTurnVisualHooks(ux);
   renderBoard();
+  updatePlayerHandCardMetrics();
   renderSeats();
   renderPlayers();
+  renderPlayerHandDock();
   renderTurnStage();
   renderDice();
-  renderCurrentPlayerDevCards();
   renderBankStock();
   renderCostReference();
   renderCurrentPlayerHarbors();
   renderControls();
   const [title, text] = guideFor();
+  actionNoticePanel?.classList.toggle("has-action-notice", Boolean(currentActionNotice()));
+  renderActionNoticeControls();
   guideTitle.textContent = title;
   guideText.textContent = text;
   if (currentPlayerLabel) {
@@ -5077,7 +7057,43 @@ function render() {
     currentPlayerLabel.dataset.state = ux.kind;
   }
   dicePanel?.setAttribute("data-turn-state", ux.kind);
+  dicePanel?.setAttribute("data-my-turn", shouldHighlightDicePanel(ux) ? "true" : "false");
+  dicePanel?.setAttribute("data-roll-needed", shouldPulseDicePanel(ux) ? "true" : "false");
+  dicePanel?.setAttribute("data-seven-alert", game.lastDice?.total === 7 ? "true" : "false");
+  turnStagePanel?.setAttribute("data-pending-action", game.pendingActionView?.type || (isResolvingForcedAction() ? selectedAction : "none"));
+  pulseTurnFeedback(ux);
   updateTradeRatioLabel();
+}
+
+function updatePlayerHandCardMetrics() {
+  if (!tabletop || !svg) return;
+  const sampleTile = svg.querySelector(".hex.forest, .hex.field, .hex.pasture, .hex.hill, .hex.mountain, .hex");
+  const tileRect = sampleTile?.getBoundingClientRect();
+  const tileWidth = Number(tileRect?.width);
+  if (!Number.isFinite(tileWidth) || tileWidth <= 0) return;
+  const cardWidth = Math.round(clamp(tileWidth, 42, 125));
+  const cardHeight = Math.round(cardWidth / 0.72);
+  const stackWidth = Math.round(cardWidth * 2.12);
+  const stackHeight = Math.round(cardHeight + cardWidth * 0.32);
+  const stackRight = Math.round(cardWidth * 0.16);
+  const stackBottom = Math.round(cardWidth * 0.13);
+  const cardPadding = Math.round(clamp(cardWidth * 0.08, 5, 10));
+  tabletop.style.setProperty("--hand-card-width", `${cardWidth}px`);
+  tabletop.style.setProperty("--hand-card-height", `${cardHeight}px`);
+  tabletop.style.setProperty("--hand-card-stack-width", `${stackWidth}px`);
+  tabletop.style.setProperty("--hand-card-stack-height", `${stackHeight}px`);
+  tabletop.style.setProperty("--hand-card-stack-right", `${stackRight}px`);
+  tabletop.style.setProperty("--hand-card-stack-bottom", `${stackBottom}px`);
+  tabletop.style.setProperty("--hand-card-padding", `${cardPadding}px`);
+}
+
+function schedulePlayerHandCardMetricsUpdate() {
+  if (playerHandMetricFrame !== null) cancelAnimationFrame(playerHandMetricFrame);
+  playerHandMetricFrame = requestAnimationFrame(() => {
+    playerHandMetricFrame = null;
+    updatePlayerHandCardMetrics();
+    renderPlayerHandDock();
+  });
 }
 
 function updateTurnVisualHooks(ux = currentTurnUxState()) {
@@ -5092,6 +7108,67 @@ function updateTurnVisualHooks(ux = currentTurnUxState()) {
     boardArea.style.setProperty("--focus-player-color", focusColor);
   }
 }
+
+function toggleScoreTooltip(target) {
+  const badge = target?.closest?.(".score-dot[data-score-player-id]");
+  if (!badge) return false;
+  const playerId = badge.dataset.scorePlayerId;
+  activeScoreTooltipPlayerId = String(activeScoreTooltipPlayerId) === String(playerId) ? null : playerId;
+  render();
+  return true;
+}
+
+document.addEventListener("click", (event) => {
+  if (toggleScoreTooltip(event.target)) {
+    event.stopPropagation();
+    return;
+  }
+  if (activeScoreTooltipPlayerId !== null) {
+    activeScoreTooltipPlayerId = null;
+    render();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if ((event.key === "Enter" || event.key === " ") && event.target?.closest?.(".score-dot[data-score-player-id]")) {
+    event.preventDefault();
+    toggleScoreTooltip(event.target);
+    return;
+  }
+  if (event.key === "Escape" && activeScoreTooltipPlayerId !== null) {
+    activeScoreTooltipPlayerId = null;
+    render();
+  }
+});
+
+playerHandToggle?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  if (isMobileViewport()) return;
+  playerHandExpanded = !playerHandExpanded;
+  renderPlayerHandDock();
+});
+
+playerHandDock?.addEventListener("click", () => {
+  if (isMobileViewport()) return;
+  if (playerHandExpanded) return;
+  playerHandExpanded = true;
+  renderPlayerHandDock();
+});
+
+playerResourceHand?.addEventListener("click", (event) => {
+  if (isMobileViewport()) return;
+  if (!playerHandExpanded || !event.target.closest(".hand-resource-card")) return;
+  event.stopPropagation();
+  playerHandExpanded = false;
+  renderPlayerHandDock();
+});
+
+window.addEventListener("resize", () => {
+  syncFloatingPanelsForViewport();
+  schedulePlayerHandCardMetricsUpdate();
+});
+actionNoticePrev?.addEventListener("click", showPreviousActionNotice);
+actionNoticeNext?.addEventListener("click", showNextActionNotice);
 
 buildButtons.forEach((button) => {
   button.addEventListener("click", () => {
@@ -5152,6 +7229,18 @@ buildButtons.forEach((button) => {
 });
 playerCount.addEventListener("change", updateNameFields);
 startGameButton.addEventListener("click", startGame);
+rollButton.addEventListener("pointerdown", startDicePress);
+rollButton.addEventListener("pointerup", finishDicePress);
+rollButton.addEventListener("pointercancel", cancelDicePress);
+rollButton.addEventListener("mousedown", startDicePress);
+rollButton.addEventListener("mouseup", finishDicePress);
+rollButton.addEventListener("mouseleave", cancelDicePress);
+rollButton.addEventListener("touchstart", startDicePress, { passive: true });
+rollButton.addEventListener("touchend", finishDicePress);
+rollButton.addEventListener("touchcancel", cancelDicePress);
+rollButton.addEventListener("keydown", startDiceKeyboardPress);
+rollButton.addEventListener("keyup", finishDiceKeyboardPress);
+rollButton.addEventListener("blur", cancelDicePress);
 rollButton.addEventListener("click", roll);
 endTurnButton.addEventListener("click", endTurn);
 newGameButton.addEventListener("click", () => {
@@ -5162,6 +7251,7 @@ newGameButton.addEventListener("click", () => {
   }
   resetToSetup();
 });
+feelSettingsButton?.addEventListener("click", showFeelSettingsModal);
 tradeButton?.addEventListener("click", () => showBankTradeModal());
 tradeGive?.addEventListener("change", updateTradeRatioLabel);
 offlineModeButton?.addEventListener("click", showOfflineSetup);
@@ -5205,12 +7295,14 @@ joinRoomCode?.addEventListener("keydown", (event) => {
 });
 
 updateNameFields();
+applyActionButtonIconTokens();
 renderTradeOptions();
 initCostCardDrag();
 initDicePanelDrag();
 initBoardZoom();
 syncFloatingPanelsForViewport();
 installTestHelpers();
+window.matchMedia?.("(prefers-reduced-motion: reduce)").addEventListener?.("change", () => applyFeelSettings(currentFeelSettings));
 setupBoard();
 showJoinFromUrlIfNeeded();
 render();

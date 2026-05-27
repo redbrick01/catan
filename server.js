@@ -42,6 +42,10 @@ const configuredBotRunnerDelayMs = Number(process.env.BOT_RUNNER_DELAY_MS);
 const botRunnerDelayMs = process.env.NODE_ENV === "test"
   ? 0
   : (Number.isFinite(configuredBotRunnerDelayMs) && configuredBotRunnerDelayMs >= 0 ? configuredBotRunnerDelayMs : 900);
+const configuredBotWatchdogMs = Number(process.env.BOT_WATCHDOG_MS);
+const botWatchdogMs = Number.isFinite(configuredBotWatchdogMs) && configuredBotWatchdogMs >= 1000
+  ? configuredBotWatchdogMs
+  : 2500;
 
 const types = {
   ".html": "text/html; charset=utf-8",
@@ -51,7 +55,8 @@ const types = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
-  ".svg": "image/svg+xml"
+  ".svg": "image/svg+xml",
+  ".wav": "audio/wav"
 };
 
 const rooms = new Map();
@@ -1521,6 +1526,21 @@ function rollServerDice(forcedTotal = null) {
   return { die1, die2, total: die1 + die2 };
 }
 
+function makeRollAnimationSeed(room, game, payload = {}) {
+  return crypto
+    .createHash("sha256")
+    .update([
+      room.id,
+      room.revision,
+      game.active,
+      Number(payload.clientHoldMs) || 0,
+      String(payload.clientEntropy || ""),
+      crypto.randomBytes(8).toString("hex")
+    ].join(":"))
+    .digest("hex")
+    .slice(0, 24);
+}
+
 function distributeResourcesForRoll(matchState, total) {
   const production = [];
   if (total === 7) return production;
@@ -2741,6 +2761,16 @@ function scheduleBotRunner(room) {
   }, botRunnerDelayMs);
 }
 
+function runBotRunnerWatchdog() {
+  for (const room of rooms.values()) {
+    if (room.status !== "playing" || !room.matchState?.game) continue;
+    const runner = ensureBotRunner(room);
+    if (runner.timerId || runner.commandInFlight) continue;
+    const actor = currentBotActor(room);
+    if (canBotRunAction(room, actor)) scheduleBotRunner(room);
+  }
+}
+
 function makeBotSocket(room, player) {
   return {
     OPEN: 1,
@@ -3958,6 +3988,8 @@ function handleRollDice(socket, message) {
 
   const forcedTotal = process.env.NODE_ENV === "test" ? Number(message.payload?.testTotal) : null;
   const dice = rollServerDice(forcedTotal);
+  dice.animationSeed = makeRollAnimationSeed(room, game, message.payload || {});
+  dice.rollId = [room.id, room.revision + 1, game.active, dice.die1, dice.die2].join(":");
   game.lastDice = dice;
   game.rolled = true;
   if (dice.total === 7) {
@@ -4259,6 +4291,9 @@ wss.on("connection", (socket) => {
     }
   });
 });
+
+const botWatchdogTimer = setInterval(runBotRunnerWatchdog, botWatchdogMs);
+botWatchdogTimer.unref?.();
 
 server.listen(port, host, () => {
   const networkUrls = getNetworkHosts().map((address) => `http://${address}:${port}/`);

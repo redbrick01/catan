@@ -1,0 +1,9 @@
+Source: https://opengameart.org/content/2-dice-roll-29-throws
+Author: RPG
+License: CC0 1.0 Universal
+
+Downloaded file: Dice sound.7z
+Selected project mappings:
+- dice-release: dice-11.wav
+- dice-settle: dice-4.wav
+- dice-roll: dice-10.wav
