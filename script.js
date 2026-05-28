@@ -95,6 +95,7 @@ const lobbyStartButton = document.querySelector("#lobbyStartButton");
 const lobbyStartHint = document.querySelector("#lobbyStartHint");
 const leaveLobbyButton = document.querySelector("#leaveLobbyButton");
 const leaveGameRoomButton = ensureButton("leaveGameRoomButton", "방 나가기", newGameButton?.parentElement, "wide-button muted hidden");
+const languageSelect = document.querySelector("#languageSelect");
 
 const NS = "http://www.w3.org/2000/svg";
 const SIZE = 72;
@@ -276,9 +277,7 @@ const DEFAULT_FEEL_SETTINGS = {
   soundEnabled: false,
   soundVolume: 60,
   turnSoundEnabled: true,
-  importantEventSoundEnabled: true,
-  turnEmphasis: "normal",
-  importantEventEmphasis: true
+  importantEventSoundEnabled: true
 };
 const SOUND_EVENT_MAP = {
   turnChanged: { asset: "turn-bell", category: "turn", volumeScale: 0.82, setting: "turnSoundEnabled" },
@@ -371,6 +370,481 @@ const actionFeedbackRuntime = {
 };
 let playerHandExpanded = false;
 let playerHandMetricFrame = null;
+
+const LANGUAGE_STORAGE_KEY = "catanLanguage";
+const SUPPORTED_LANGUAGES = ["ko", "en"];
+const originalTextNodes = new WeakMap();
+const originalAttributes = new WeakMap();
+let currentLanguage = loadLanguage();
+let languageMutationObserver = null;
+let isApplyingLanguage = false;
+
+const EXACT_EN_TRANSLATIONS = {
+  "언어": "Language",
+  "언어 선택": "Choose Language",
+  "한국어": "Korean",
+  "Catan 오리지널": "Catan Original",
+  "게임 모드 선택": "Choose Game Mode",
+  "오프라인 게임": "Offline Game",
+  "온라인 방 만들기": "Create Online Room",
+  "온라인 방 참가하기": "Join Online Room",
+  "같은 네트워크에서 방을 만들고 참가자 목록을 함께 확인할 수 있습니다.": "Create a room on the same network and watch the player list together.",
+  "플레이어 수": "Players",
+  "3명": "3 players",
+  "4명": "4 players",
+  "게임 시작": "Start Game",
+  "모드 선택으로": "Back to Mode Select",
+  "방 만들기": "Create Room",
+  "닉네임": "Nickname",
+  "예: 민수": "Ex: Minsoo",
+  "방 참가": "Join Room",
+  "방 코드": "Room Code",
+  "예: 지우": "Ex: Jiwoo",
+  "참가하기": "Join",
+  "대기실": "Lobby",
+  "연결 대기": "Waiting",
+  "내 정보": "Me",
+  "공유 URL": "Share URL",
+  "복사": "Copy",
+  "참가자 목록": "Player List",
+  "참가자": "Players",
+  "봇 추가": "Add Bot",
+  "게임 시작은 다음 단계에서 구현합니다.": "Game start is implemented in the next step.",
+  "나가기": "Leave",
+  "플레이어 상태": "Player Status",
+  "플레이어": "Player",
+  "주사위 결과": "Dice Result",
+  "합계": "Total",
+  "주사위": "Dice",
+  "Catan 보드": "Catan Board",
+  "확대 보기": "Zoom",
+  "내 자원 손패": "My Resource Hand",
+  "내 카드": "My Cards",
+  "펼치기": "Expand",
+  "접기": "Collapse",
+  "행동 알림": "Action Notice",
+  "행동 알림 내역": "Action Notice History",
+  "이전 행동 알림": "Previous Action Notice",
+  "다음 행동 알림": "Next Action Notice",
+  "대기 중": "Waiting",
+  "3~4명 닉네임을 입력하고 게임을 시작하세요.": "Enter 3-4 nicknames and start the game.",
+  "행동": "Actions",
+  "도로": "Road",
+  "마을": "Settlement",
+  "도시": "City",
+  "개발 카드": "Development Card",
+  "카드 사용": "Play Card",
+  "교환": "Trade",
+  "플레이어 교환": "Player Trade",
+  "턴 넘기기": "End Turn",
+  "새 게임": "New Game",
+  "설정": "Settings",
+  "효과 설정": "Effects Settings",
+  "비용표": "Cost Reference",
+  "라운드": "Round",
+  "은행 재고": "Bank Stock",
+  "보유 항구": "Owned Harbors",
+  "방 나가기": "Leave Room",
+  "목재": "Lumber",
+  "곡물": "Grain",
+  "가죽": "Wool",
+  "벽돌": "Brick",
+  "광석": "Ore",
+  "자원": "Resources",
+  "도둑": "Robber",
+  "내 차례": "My Turn",
+  "행동 필요": "Action Needed",
+  "연결/재접속": "Connection/Reconnect",
+  "오류/경고": "Error/Warning",
+  "승리": "Victory",
+  "대기": "Waiting",
+  "봇": "Bot",
+  "기사": "Knight",
+  "승점": "Victory Point",
+  "도로 건설": "Road Building",
+  "풍년": "Year of Plenty",
+  "독점": "Monopoly",
+  "확인 필요": "Needs Attention",
+  "봇 진행 중": "Bot Acting",
+  "진행 중": "In Progress",
+  "현재 라운드": "Current Round",
+  "개발": "Development",
+  "없음": "None",
+  "보유": "Owned",
+  "항구": "Harbor",
+  "카드": "Cards",
+  "사용 가능": "Usable",
+  "닫기": "Close",
+  "효과 설정": "Effects Settings",
+  "모션과 효과음 선호를 조정합니다.": "Adjust motion and sound preferences.",
+  "언어, 모션, 효과음 설정을 조정합니다.": "Adjust language, motion, and sound settings.",
+  "7 규칙: 카드 버리기": "7 Rule: Discard Cards",
+  "약탈 대상 선택": "Choose Robbery Target",
+  "도둑 약탈 대상 선택": "Choose Robbery Target",
+  "도둑 결과": "Robber Result",
+  "약탈 대상 선택 대기": "Waiting for Robbery Target",
+  "은행/항구 교환": "Bank/Harbor Trade",
+  "플레이어 교환 진행 중": "Player Trade in Progress",
+  "교환 조건 수정": "Revise Trade Terms",
+  "플레이어 교환 요청": "Player Trade Request",
+  "흥정 제안": "Counteroffer",
+  "교환 제안 확인": "Confirm Trade Offer",
+  "응답": "Responses",
+  "흥정": "Counter",
+  "흥정 조건 반영": "Use Counteroffer",
+  "흥정 보내기": "Send Counteroffer",
+  "상대": "Partner",
+  "조건 수정": "Revise Terms",
+  "거래 취소": "Cancel Trade",
+  "취소": "Cancel",
+  "선택": "Select",
+  "거절": "Reject",
+  "수락": "Accept",
+  "수정": "Revise",
+  "제안": "Propose",
+  "요청": "Request",
+  "재요청": "Request Again",
+  "뒤로": "Back",
+  "결과 보기": "View Results",
+  "선택 완료": "Confirm Selection",
+  "버리기 완료": "Discard Complete",
+  "제거": "Remove",
+  "연결됨": "Connected",
+  "연결 끊김": "Disconnected",
+  "끊김": "Disconnected",
+  "방장": "Host",
+  "참가자": "Participant",
+  "나": "Me",
+  "준비됨": "Ready",
+  "사람": "Human",
+  "효과음 볼륨": "Sound Volume",
+  "모션 효과": "Motion Effects",
+  "자동": "Auto",
+  "줄이기": "Reduced",
+  "켜기": "On",
+  "끄기": "Off",
+  "효과음": "Sound Effects",
+  "기본": "Normal",
+  "강하게": "Strong",
+  "내 차례 효과음": "My Turn Sound",
+  "My Turn 효과음": "My Turn Sound",
+  "중요 이벤트 효과음": "Important Event Sound",
+  "Human 1 players 이상, Human+Bot 합산 3 players 이상이면 시작할 수 있습니다.": "Start when there is at least 1 human player and at least 3 total human plus bot players.",
+  "해적": "Robber",
+  "주사위 굴리기": "Roll Dice",
+  "주사위 굴리는 중": "Rolling Dice",
+  "주사위 없음": "No Dice",
+  "二쇱궗???놁쓬": "No Dice",
+  "카드 버리기": "Discard Cards",
+  "도둑 이동": "Move Robber",
+  "약탈 대상 선택": "Choose Robbery Target",
+  "도로 건설 카드": "Road Building Card",
+  "초기 배치": "Initial Placement",
+  "게임 종료": "Game Over",
+  "재접속 대기": "Waiting for Reconnect",
+  "상대 차례": "Opponent Turn",
+  "주사위 또는 개발 카드": "Dice or Development Card",
+  "건설/교환": "Build/Trade",
+  "마을 배치": "Place Settlement",
+  "도로 배치": "Place Road",
+  "마을/도로 배치": "Place Settlement/Road",
+  "건설/교환/턴 넘기기": "Build/Trade/End Turn",
+  "주사위 굴리기": "Roll Dice"
+};
+
+const PHRASE_EN_TRANSLATIONS = [
+  [/^플레이어 차례입니다\. 마을을 놓은 뒤, 그 마을과 붙은 도로를 놓으세요\.$/g, "Player's turn. Place a settlement, then place a road connected to it."],
+  [/^방을 나가시겠습니까\?$/g, "Leave the room?"],
+  [/^Room을 나가시겠습니까\?$/g, "Leave the room?"],
+  [/^최대 4명까지 참가할 수 있습니다\.$/g, "Up to 4 players can join."],
+  [/^방장만 게임을 시작할 수 있습니다\.$/g, "Only the host can start the game."],
+  [/^Room장만 게임을 시작할 수 있습니다\.$/g, "Only the host can start the game."],
+  [/^사람 플레이어가 1명 이상 필요합니다\.$/g, "At least 1 human player is required."],
+  [/^사람과 봇을 합쳐 3명 이상이면 시작할 수 있습니다\.$/g, "You can start with at least 3 total human and bot players."],
+  [/^모든 사람 참가자가 연결되어 있어야 합니다\.$/g, "All human players must be connected."],
+  [/^사람 1명 이상, 사람\\+봇 합산 3명 이상이면 시작할 수 있습니다\.$/g, "Start when there is at least 1 human player and at least 3 total human plus bot players."],
+  [/^사람 1 players 이상, 사람\\+Bot 합산 3 players 이상이면 시작할 수 있습니다\.$/g, "Start when there is at least 1 human player and at least 3 total human plus bot players."],
+  [/^Human 1 players 이상, Human\\+Bot 합산 3 players 이상이면 시작할 수 있습니다\.$/g, "Start when there is at least 1 human player and at least 3 total human plus bot players."],
+  [/^Human 1 players.*Human\\+Bot.*3 players.*시작할 수 있습니다\\.$/g, "Start when there is at least 1 human player and at least 3 total human plus bot players."],
+  [/^게임을 시작하는 중입니다\.$/g, "Starting the game."],
+  [/^봇을 추가하는 중입니다\.$/g, "Adding a bot."],
+  [/^봇을 제거하는 중입니다\.$/g, "Removing the bot."],
+  [/^닉네임을 입력하세요\.$/g, "Enter a nickname."],
+  [/^서버에 연결하는 중입니다\.$/g, "Connecting to the server."],
+  [/^방 코드를 입력하세요\.$/g, "Enter a room code."],
+  [/^방에 참가하는 중입니다\.$/g, "Joining the room."],
+  [/^복사했습니다\.$/g, "Copied."],
+  [/^복사에 실패했습니다\\. URL을 직접 선택해 복사하세요\.$/g, "Copy failed. Select and copy the URL manually."],
+  [/^나가면 현재 게임방이 종료되며 다시 참가할 수 없습니다\. 친구들도 이 방에서 더 이상 게임을 진행할 수 없습니다\.$/g, "Leaving will end the current game room, and you will not be able to rejoin. Other players will no longer be able to continue this room."],
+  [/^나가면 현재 게임Room이 종료되며 다시 참가할 수 없습니다\. 친구들도 이 Room에서 더 이상 게임을 진행할 수 없습니다\.$/g, "Leaving will end the current game room, and you will not be able to rejoin. Other players will no longer be able to continue this room."],
+  [/^게임방이 종료되었습니다\.$/g, "The game room has ended."],
+  [/^참가자가 방을 나가 현재 게임방은 더 이상 진행할 수 없습니다\. 이 방에는 다시 참가할 수 없습니다\.$/g, "A player left, so this game room can no longer continue. You cannot rejoin this room."],
+  [/^참가자가 Room을 나가 현재 게임Room은 더 이상 진행할 수 없습니다\. 이 Room에는 다시 참가할 수 없습니다\.$/g, "A player left, so this game room can no longer continue. You cannot rejoin this room."],
+  [/^연결이 끊긴 참가자가 있습니다\.$/g, "A player is disconnected."],
+  [/^(.+)의 재접속을 기다리는 중입니다\. 방 나가기를 누르면 현재 게임방이 종료되며 다시 참가할 수 없습니다\.$/g, "Waiting for $1 to reconnect. If you leave the room, the current game room will end and cannot be rejoined."],
+  [/^(.+)의 재접속을 기다리는 중입니다\. Room 나가기를 누르면 현재 게임Room이 종료되며 다시 참가할 수 없습니다\.$/g, "Waiting for $1 to reconnect. If you leave the room, the current game room will end and cannot be rejoined."],
+  [/^초기 배치: 순서대로 마을 1개와 도로 1개를 놓으세요\.$/g, "Initial placement: place one settlement and one road in turn order."],
+  [/^초기 배치: 순서대로 Settlements 1와 Road 1를 놓으세요\.$/g, "Initial placement: place one settlement and one road in turn order."],
+  [/^자원 (\d+)장을 선택해 버리세요\.$/g, "Choose $1 resource cards to discard."],
+  [/^(.+): (\d+)장을 선택해 버리세요\. 현재 (\d+)\/(\d+)장 선택했습니다\.$/g, "$1: choose $2 cards to discard. Selected $3/$4."],
+  [/^(\d+)장을 더 선택하세요\.$/g, "Choose $1 more cards."],
+  [/^버릴 카드 선택이 완료되었습니다\.$/g, "Discard selection is complete."],
+  [/^자원 1장을 무작위로 가져올 대상을 선택하세요\.$/g, "Choose a player to steal 1 random resource from."],
+  [/^상대 1명을 선택하면 보유 자원 중 1장을 무작위로 가져옵니다\.$/g, "Choose one opponent to steal 1 random resource from their hand."],
+  [/^선택 가능한 대상이 없습니다\. 상태가 갱신되는 중입니다\.$/g, "No valid targets are available. The state is updating."],
+  [/^도둑이 이동했지만 빼앗을 수 있는 자원이 없습니다\.$/g, "The robber moved, but there are no resources to steal."],
+  [/^현재 도둑 위치가 아닌 타일을 선택하세요\.$/g, "Choose a tile that is not the robber's current tile."],
+  [/^현재 플레이어가 약탈 대상을 선택하는 중입니다\.$/g, "The current player is choosing a robbery target."],
+  [/^지불할 자원과 받을 자원을 선택하세요\.$/g, "Choose the resource to pay and the resource to receive."],
+  [/^자원을 선택하면 실제 적용 비율과 교환 요약이 표시됩니다\.$/g, "Choose resources to see the applied ratio and trade summary."],
+  [/^(.+) (\d+)장 → (.+) 1장 \((\d+):1 적용\)$/g, "$1 $2 cards -> $3 1 card ($4:1 applied)"],
+  [/^사용할 개발 카드를 선택하세요\. 승점 카드와 이번 턴에 산 카드는 표시되지 않습니다\.$/g, "Choose a development card to play. Victory point cards and cards bought this turn are hidden."],
+  [/^사용할 개발 카드를 선택하세요\. 승점 카드는 사용할 수 없습니다\.$/g, "Choose a development card to play. Victory point cards cannot be played."],
+  [/^은행에서 받을 자원 2장을 선택하세요\. 같은 자원을 두 번 선택할 수 있습니다\.$/g, "Choose 2 resources to take from the bank. You may choose the same resource twice."],
+  [/^독점할 자원 종류를 선택하세요\. 다른 모든 플레이어의 해당 자원을 전부 가져옵니다\.$/g, "Choose a resource type to monopolize. Take all matching resources from every other player."],
+  [/^독점할 자원 종류를 선택하세요\.$/g, "Choose the resource type to monopolize."],
+  [/^상대와 주고받을 자원을 정해 제안하세요\. 상대가 수락해야 교환됩니다\.$/g, "Choose resources to give and receive. The other player must accept for the trade to happen."],
+  [/^모든 참가자의 응답을 확인한 뒤 수락한 참가자를 선택해 거래를 확정하세요\.$/g, "Review every response, then choose an accepting player to complete the trade."],
+  [/^내가 줄 자원과 받을 자원을 정해 모든 참가자에게 요청합니다\.$/g, "Choose resources to give and receive, then send the request to all other players."],
+  [/^흥정 조건을 반영해 다시 요청합니다\.$/g, "Apply the counteroffer and send a new request."],
+  [/^내가 원하는 거래 조건을 지정해 요청자에게 보냅니다\.$/g, "Set your preferred trade terms and send them to the requester."],
+  [/^(.+)의 거래 요청에 응답하세요\.$/g, "Respond to $1's trade request."],
+  [/^(.+)님, (.+)의 교환 제안을 수락하시겠습니까\\?$/g, "$1, do you accept $2's trade offer?"],
+  [/^적용 모션: 줄이기 \/ 효과음: 끄기 \/ 볼륨 (\d+)$/g, "Motion: reduced / Sound: off / Volume $1"],
+  [/^적용 모션: 켜기 \/ 효과음: 끄기 \/ 볼륨 (\d+)$/g, "Motion: on / Sound: off / Volume $1"],
+  [/^적용 모션: 줄이기 \/ 효과음: 켜기 \/ 볼륨 (\d+)$/g, "Motion: reduced / Sound: on / Volume $1"],
+  [/^적용 모션: 켜기 \/ 효과음: 켜기 \/ 볼륨 (\d+)$/g, "Motion: on / Sound: on / Volume $1"],
+  [/^적용 모션: (.+) \/ 효과음: (.+) \/ 볼륨 (\d+)$/g, "Motion: $1 / Sound: $2 / Volume $3"],
+  [/^플레이어 차례입니다$/g, "Player's turn"],
+  [/^(.+) 차례입니다$/g, "$1's turn"],
+  [/^초기 배치 단계에서는 사용할 수 없습니다\.$/g, "This cannot be used during initial placement."],
+  [/^건설, 강도 이동, 진행 중 모달이 없을 때 확대 보기를 열 수 있습니다\.$/g, "Zoom is available when you are not building, moving the robber, or resolving a modal."],
+  [/^건설, 강도 이동, acting 모달이 없을 때 확대 보기를 열 수 있습니다\.$/g, "Zoom is available when you are not building, moving the robber, or resolving a modal."],
+  [/^(.+) 차례입니다\. 마을을 놓은 뒤, 그 마을과 붙은 도로를 놓으세요\.$/g, "$1's turn. Place a settlement, then place a road connected to it."],
+  [/^(.+) 차례입니다\. 도로, 마을, 도시, 개발 카드, 교환을 할 수 있습니다\.$/g, "$1's turn. You can build roads, settlements, cities, buy development cards, or trade."],
+  [/^(.+) 차례입니다\. 주사위를 굴리세요\. 이전 턴에 산 기사 카드는 굴리기 전에도 사용할 수 있습니다\.$/g, "$1's turn. Roll the dice. Knight cards bought on earlier turns can be played before rolling."],
+  [/^(.+)의 초기 배치를 기다리는 중입니다\.$/g, "Waiting for $1 to finish initial placement."],
+  [/^(.+)님의 행동을 기다리는 중입니다\.$/g, "Waiting for $1's action."],
+  [/^(.+)가 (.+)을 처리해야 합니다\.$/g, "$1 must resolve $2."],
+  [/^마을을 놓으세요\.$/g, "Place a settlement."],
+  [/^방금 놓은 마을과 연결된 도로를 놓으세요\.$/g, "Place a road connected to the settlement you just placed."],
+  [/^마을을 놓은 뒤 연결 도로를 놓습니다\.$/g, "Place a settlement, then place a connected road."],
+  [/^도로를 놓으면 다음 순서로 넘어갑니다\.$/g, "Place a road to continue to the next player."],
+  [/^모달 안내를 기준으로 진행합니다\.$/g, "Follow the modal instructions."],
+  [/^봇이 자동으로 행동을 처리하는 중입니다\.$/g, "The bot is taking its action automatically."],
+  [/^봇 행동이 끝나면 다음 차례로 넘어갑니다\.$/g, "The turn will advance after the bot finishes."],
+  [/^건설, 교환, 개발 카드 구입 또는 턴 넘기기를 할 수 있습니다\.$/g, "You can build, trade, buy a development card, or end your turn."],
+  [/^주사위를 굴릴 차례입니다\.$/g, "It is time to roll the dice."],
+  [/^할 행동을 마쳤다면 턴을 넘기세요\.$/g, "End your turn when you are done."],
+  [/^주사위 결과를 확인한 뒤 행동을 선택하세요\.$/g, "Check the dice result, then choose an action."],
+  [/^내 차례가 오면 행동 버튼이 활성화됩니다\.$/g, "Action buttons will activate when it is your turn."],
+  [/^두 번째 배치의 마을에서 시작 자원을 받습니다\.$/g, "Starting resources come from the second settlement placement."],
+  [/^화면 안내에 따라 선택을 완료하세요\.$/g, "Follow the on-screen instructions to finish the selection."],
+  [/^행동을 마치면 턴을 넘기세요\.$/g, "End your turn when your actions are finished."],
+  [/^굴림 후 자원을 확인하세요\.$/g, "Check your resources after the roll."],
+  [/플레이어 (\d+)/g, "Player $1"],
+  [/(\d+)명/g, "$1 players"],
+  [/(\d+)장/g, "$1 cards"],
+  [/(\d+)개/g, "$1"],
+  [/(\d+)점/g, "$1 VP"],
+  [/보유 (\d+)/g, "Owned $1"],
+  [/은행 (\d+)/g, "Bank $1"],
+  [/현재: /g, "Current: "],
+  [/대상: 모든 상대/g, "Target: all opponents"],
+  [/내가 줄 자원/g, "Resources I Give"],
+  [/받을 자원/g, "Resources to Receive"],
+  [/지불할 자원/g, "Resource to Pay"],
+  [/강도와 인접한 상대/g, "Opponents Adjacent to the Robber"],
+  [/무작위 자원 1장/g, "1 random resource"],
+  [/선택 없음/g, "none selected"],
+  [/남은 인원: /g, "Remaining players: "],
+  [/무료 도로 /g, "Free roads remaining: "],
+  [/현재 진행: /g, "Now acting: "],
+  [/ 진행 중/g, " acting"],
+  [/ 차례입니다/g, "'s turn"],
+  [/방장/g, "Host"],
+  [/참가자/g, "Participant"],
+  [/준비됨/g, "Ready"],
+  [/연결됨/g, "Connected"],
+  [/끊김/g, "Disconnected"],
+  [/ · 나 · /g, " · Me · "],
+  [/^나 · /g, "Me · "],
+  [/ · 나$/g, " · Me"],
+  [/님/g, ""],
+  [/봇 플레이어/g, "Bot Player"],
+  [/점수 정보 없음/g, "No score information"],
+  [/마을 /g, "Settlements "],
+  [/도시 /g, "Cities "],
+  [/최대 기사단/g, "Largest Army"],
+  [/최장 교역로/g, "Longest Road"],
+  [/승점 카드/g, "Victory Point Cards"],
+  [/비공개 승점 카드는 제외/g, "Hidden victory points excluded"],
+  [/합계/g, "Total"],
+  [/숨은/g, "Hidden"],
+  [/최종 점수/g, "Final Score"],
+  [/획득/g, "Earned"],
+  [/대기/g, "Waiting"],
+  [/진행 중/g, "In Progress"],
+  [/행동 필요/g, "Action Needed"],
+  [/내 차례/g, "My Turn"],
+  [/봇/g, "Bot"],
+  [/사람/g, "Human"],
+  [/목재/g, "Lumber"],
+  [/곡물/g, "Grain"],
+  [/가죽/g, "Wool"],
+  [/벽돌/g, "Brick"],
+  [/광석/g, "Ore"],
+  [/도로/g, "Road"],
+  [/마을/g, "Settlement"],
+  [/도시/g, "City"],
+  [/개발 카드/g, "Development Card"],
+  [/카드/g, "Cards"],
+  [/자원/g, "Resources"],
+  [/주사위/g, "Dice"],
+  [/교환/g, "Trade"],
+  [/도둑/g, "Robber"],
+  [/방/g, "Room"],
+  [/연결/g, "Connection"],
+  [/오류/g, "Error"],
+  [/승리/g, "Victory"]
+];
+
+function loadLanguage() {
+  const queryLanguage = new URLSearchParams(window.location.search).get("lang");
+  const savedLanguage = (() => {
+    try {
+      return localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    } catch (error) {
+      return null;
+    }
+  })();
+  const browserLanguage = navigator.language?.toLowerCase().startsWith("en") ? "en" : "ko";
+  return SUPPORTED_LANGUAGES.includes(queryLanguage)
+    ? queryLanguage
+    : SUPPORTED_LANGUAGES.includes(savedLanguage)
+      ? savedLanguage
+      : browserLanguage;
+}
+
+function saveLanguage(language) {
+  currentLanguage = SUPPORTED_LANGUAGES.includes(language) ? language : "ko";
+  try {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, currentLanguage);
+  } catch (error) {
+    // Language preference should not block play.
+  }
+}
+
+function syncLanguageSelects() {
+  document.querySelectorAll("[data-language-select]").forEach((select) => {
+    if (select.value !== currentLanguage) select.value = currentLanguage;
+  });
+}
+
+function setLanguage(language) {
+  saveLanguage(language);
+  applyLanguage();
+}
+
+function translateToEnglish(value) {
+  const source = String(value ?? "");
+  if (!source.trim()) return source;
+  if (EXACT_EN_TRANSLATIONS[source]) return EXACT_EN_TRANSLATIONS[source];
+  let translated = source;
+  PHRASE_EN_TRANSLATIONS.forEach(([pattern, replacement]) => {
+    translated = translated.replace(pattern, replacement);
+  });
+  return EXACT_EN_TRANSLATIONS[translated] || translated;
+}
+
+function languageText(value) {
+  return currentLanguage === "en" ? translateToEnglish(value) : String(value ?? "");
+}
+
+function translateTextNode(node) {
+  if (!node || node.nodeType !== Node.TEXT_NODE || node.parentElement?.closest?.("script, style")) return;
+  if (!isApplyingLanguage || !originalTextNodes.has(node) || /[가-힣]/.test(node.nodeValue || "")) {
+    originalTextNodes.set(node, node.nodeValue);
+  }
+  const original = originalTextNodes.get(node) ?? node.nodeValue;
+  const nextValue = currentLanguage === "en" ? translateToEnglish(original) : original;
+  if (node.nodeValue !== nextValue) node.nodeValue = nextValue;
+}
+
+function originalAttributeMap(element) {
+  let map = originalAttributes.get(element);
+  if (!map) {
+    map = {};
+    originalAttributes.set(element, map);
+  }
+  return map;
+}
+
+function translateAttribute(element, attributeName) {
+  if (!element?.hasAttribute?.(attributeName)) return;
+  if (element.matches?.("input") && attributeName === "value") return;
+  const map = originalAttributeMap(element);
+  const currentValue = element.getAttribute(attributeName);
+  if (!isApplyingLanguage || map[attributeName] === undefined || /[가-힣]/.test(currentValue || "")) map[attributeName] = currentValue;
+  const original = map[attributeName] ?? currentValue;
+  const nextValue = currentLanguage === "en" ? translateToEnglish(original) : original;
+  if (element.getAttribute(attributeName) !== nextValue) element.setAttribute(attributeName, nextValue);
+}
+
+function translateElementTree(root = document.body) {
+  if (!root) return;
+  const textWalker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const textNodes = [];
+  while (textWalker.nextNode()) textNodes.push(textWalker.currentNode);
+  textNodes.forEach(translateTextNode);
+  const elements = root.nodeType === Node.ELEMENT_NODE ? [root, ...root.querySelectorAll("*")] : [...root.querySelectorAll("*")];
+  elements.forEach((element) => {
+    ["aria-label", "title", "placeholder"].forEach((attributeName) => translateAttribute(element, attributeName));
+  });
+}
+
+function applyLanguage() {
+  isApplyingLanguage = true;
+  document.documentElement.lang = currentLanguage;
+  syncLanguageSelects();
+  translateElementTree(document.body);
+  isApplyingLanguage = false;
+}
+
+function initLanguageSelector() {
+  document.addEventListener("change", (event) => {
+    const select = event.target?.closest?.("[data-language-select]");
+    if (!select) return;
+    setLanguage(select.value);
+  });
+  languageMutationObserver = new MutationObserver((mutations) => {
+    if (isApplyingLanguage) return;
+    isApplyingLanguage = true;
+    mutations.forEach((mutation) => {
+      if (mutation.type === "characterData") {
+        translateTextNode(mutation.target);
+        return;
+      }
+      if (mutation.type === "attributes") {
+        translateAttribute(mutation.target, mutation.attributeName);
+        return;
+      }
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.TEXT_NODE) translateTextNode(node);
+        else if (node.nodeType === Node.ELEMENT_NODE) translateElementTree(node);
+      });
+    });
+    isApplyingLanguage = false;
+  });
+  languageMutationObserver.observe(document.body, {
+    childList: true,
+    characterData: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["aria-label", "title", "placeholder"]
+  });
+  applyLanguage();
+}
 
 // FEEL-000 foundation: shared cue helpers for visual, sound, log, and toast feedback.
 const feelCueRuntime = {
@@ -564,9 +1038,7 @@ function sanitizeFeelSettings(value = {}) {
     soundEnabled: Boolean(source.soundEnabled),
     soundVolume: Number.isFinite(sourceVolume) ? clamp(sourceVolume, 0, 100) : DEFAULT_FEEL_SETTINGS.soundVolume,
     turnSoundEnabled: source.turnSoundEnabled === undefined ? DEFAULT_FEEL_SETTINGS.turnSoundEnabled : Boolean(source.turnSoundEnabled),
-    importantEventSoundEnabled: source.importantEventSoundEnabled === undefined ? DEFAULT_FEEL_SETTINGS.importantEventSoundEnabled : Boolean(source.importantEventSoundEnabled),
-    turnEmphasis: enumValue(source.turnEmphasis, ["normal", "strong"], DEFAULT_FEEL_SETTINGS.turnEmphasis),
-    importantEventEmphasis: source.importantEventEmphasis === undefined ? DEFAULT_FEEL_SETTINGS.importantEventEmphasis : Boolean(source.importantEventEmphasis)
+    importantEventSoundEnabled: source.importantEventSoundEnabled === undefined ? DEFAULT_FEEL_SETTINGS.importantEventSoundEnabled : Boolean(source.importantEventSoundEnabled)
   };
 }
 
@@ -613,8 +1085,8 @@ function applyFeelSettings(settings = currentFeelSettings) {
   document.documentElement.dataset.motionMode = effective.motionMode;
   document.documentElement.dataset.effectiveMotion = effective.effectiveMotion;
   document.documentElement.dataset.sound = effective.sound;
-  document.documentElement.dataset.eventEmphasis = effective.importantEventEmphasis ? "on" : "off";
-  document.documentElement.dataset.turnEmphasis = effective.turnEmphasis;
+  delete document.documentElement.dataset.eventEmphasis;
+  delete document.documentElement.dataset.turnEmphasis;
   document.documentElement.classList.toggle("is-reduced-motion", effective.effectiveMotion === "reduced");
   return effective;
 }
@@ -2133,6 +2605,7 @@ function renderLobby() {
   if (lobbyStartHint) {
     lobbyStartHint.textContent = "사람 1명 이상, 사람+봇 합산 3명 이상이면 시작할 수 있습니다.";
   }
+  applyLanguage();
   syncOnlineRoomModals();
 }
 
@@ -3185,6 +3658,29 @@ function appendVolumeControl(parent, value, onChange) {
   parent.append(label);
 }
 
+function appendLanguageControl(parent) {
+  const label = document.createElement("label");
+  label.className = "feel-setting-language";
+  const text = document.createElement("span");
+  text.textContent = "언어";
+  const select = document.createElement("select");
+  select.id = "modalLanguageSelect";
+  select.dataset.languageSelect = "true";
+  [
+    ["ko", "한국어"],
+    ["en", "English"]
+  ].forEach(([value, labelText]) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = labelText;
+    select.append(option);
+  });
+  select.value = currentLanguage;
+  label.append(text, select);
+  parent.append(label);
+  return select;
+}
+
 function handleFeelSettingsKeydown(event, returnFocusTo) {
   if (onlineSession.modalKind !== "feel-settings") return;
   if (event.key === "Escape") {
@@ -3216,7 +3712,7 @@ function showFeelSettingsModal() {
   if (!canOpenFeelSettingsModal()) return;
   const returnFocusTo = document.activeElement;
   onlineSession.modalKind = "feel-settings";
-  showModal("효과 설정", "모션과 효과음 선호를 조정합니다.");
+  showModal("설정", "언어, 모션, 효과음 설정을 조정합니다.");
   onlineSession.modalKind = "feel-settings";
 
   const panel = document.createElement("div");
@@ -3228,6 +3724,7 @@ function showFeelSettingsModal() {
     renderFeelSettingsSummary();
   }
 
+  appendLanguageControl(panel);
   appendRadioGroup(panel, "모션 효과", "feel-motion-mode", [
     { value: "auto", label: "자동" },
     { value: "reduced", label: "줄이기" },
@@ -3244,12 +3741,6 @@ function showFeelSettingsModal() {
     renderFeelSettingsSummary();
   });
 
-  appendRadioGroup(panel, "내 차례 강조", "feel-turn-emphasis", [
-    { value: "normal", label: "기본" },
-    { value: "strong", label: "강하게" }
-  ], draft.turnEmphasis, (turnEmphasis) => commit({ turnEmphasis }));
-
-  appendToggle(panel, "중요 이벤트 강조", draft.importantEventEmphasis, (importantEventEmphasis) => commit({ importantEventEmphasis }));
   appendToggle(panel, "내 차례 효과음", draft.turnSoundEnabled, (turnSoundEnabled) => commit({ turnSoundEnabled }));
   appendToggle(panel, "중요 이벤트 효과음", draft.importantEventSoundEnabled, (importantEventSoundEnabled) => commit({ importantEventSoundEnabled }));
 
@@ -3489,9 +3980,11 @@ function updateNameFields() {
   nameFields.replaceChildren();
   for (let i = 0; i < count; i++) {
     const label = document.createElement("label");
-    label.innerHTML = `<span>플레이어 ${i + 1}</span><input id="name${i}" maxlength="10" value="플레이어 ${i + 1}">`;
+    const defaultName = languageText(`플레이어 ${i + 1}`);
+    label.innerHTML = `<span>${escapeHtml(`플레이어 ${i + 1}`)}</span><input id="name${i}" maxlength="10" value="${escapeHtml(defaultName)}">`;
     nameFields.append(label);
   }
+  applyLanguage();
 }
 
 function axialToPixel(q, r) {
@@ -7090,6 +7583,7 @@ function render() {
   turnStagePanel?.setAttribute("data-pending-action", game.pendingActionView?.type || (isResolvingForcedAction() ? selectedAction : "none"));
   pulseTurnFeedback(ux);
   updateTradeRatioLabel();
+  applyLanguage();
 }
 
 function updatePlayerHandCardMetrics() {
@@ -7324,6 +7818,7 @@ joinRoomCode?.addEventListener("keydown", (event) => {
 updateNameFields();
 applyActionButtonIconTokens();
 renderTradeOptions();
+initLanguageSelector();
 initCostCardDrag();
 initDicePanelDrag();
 initBoardZoom();

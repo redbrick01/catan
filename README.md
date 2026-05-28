@@ -129,3 +129,138 @@ stop-catan.cmd
 이 프로젝트의 코드와 문서는 [MIT License](LICENSE)에 따라 배포됩니다.
 
 이 프로젝트는 교육 목적의 비공식 팬 제작 프로젝트이며, 공식 Catan 관련 법인과 제휴하거나 승인받은 프로젝트가 아닙니다. 자세한 상표 및 비공식 고지는 [LICENSE](LICENSE)를 확인하세요.
+
+---
+
+# Catan Installation and Run Guide
+
+Catan is a browser-based board game. This document explains only how players can install and run the game.
+
+## Requirements
+
+- Node.js
+- npm
+
+The launch scripts automatically check for required packages and install them if they are missing.
+Node.js and npm themselves must be installed first.
+
+You can check them in a terminal:
+
+```bash
+node -v
+npm -v
+```
+
+## Easiest Start
+
+Open the launcher for your operating system from the project folder.
+
+macOS:
+
+```text
+start-catan.command
+```
+
+Windows:
+
+```text
+start-catan.cmd
+```
+
+The launcher checks required packages and starts the server. If packages are missing, it runs `npm install` automatically.
+The first launch may look paused for a moment while dependencies install; this is normal if installation logs continue to appear.
+
+When the server is ready, this message appears:
+
+```text
+게임 종료 및 서버를 중지하려면 Ctrl+C를 입력하세요.
+```
+
+Close the window or press `Ctrl+C` to stop the running server.
+
+## Run From Terminal
+
+From the project folder, use one of these commands.
+
+Keep the server running in the terminal:
+
+```bash
+npm start
+```
+
+Start the server and open the browser automatically:
+
+```bash
+npm run open
+```
+
+`npm start` keeps the server running in the terminal, so stop it with `Ctrl+C`.
+`npm run open` starts the server in the background, opens the browser, and then finishes the command.
+
+## Connection URLs
+
+On the same computer:
+
+```text
+http://127.0.0.1:4173/
+```
+
+From another device on the same Wi-Fi or LAN, use the network URL shown when the server starts.
+
+```text
+http://<server-computer-ip>:4173/
+```
+
+Example:
+
+```text
+http://192.168.0.10:4173/
+```
+
+## Start Playing
+
+1. Open the game in a browser.
+2. Choose offline or online mode.
+3. In online mode, create a room and share the displayed join link with other players.
+4. If there are not enough players, add bots from the lobby.
+5. Use the language selector in the top-right corner to switch between Korean and English.
+
+## Stop The Server
+
+If you started with `start-catan.command`, `start-catan.cmd`, or `npm start`, press this in the running terminal:
+
+```text
+Ctrl+C
+```
+
+If you started in the background with `npm run open`, stop the server with:
+
+```bash
+node stop-catan.js
+```
+
+On Windows, you can also run the stop file directly.
+
+```text
+stop-catan.cmd
+```
+
+## Troubleshooting
+
+If the port is already in use, an existing server may still be running. Stop it with `node stop-catan.js`, then start again.
+
+If the browser cannot connect, check:
+
+- Whether the server window shows an error
+- Whether Node.js and npm are installed
+- Whether the devices are on the same network
+- Whether a firewall is blocking port `4173`
+- Whether the network URL IP address matches the current server computer IP
+
+If package installation fails, check your internet connection and try again.
+
+## License
+
+The code and documentation in this project are distributed under the [MIT License](LICENSE).
+
+This is an unofficial fan-made project for educational purposes. It is not affiliated with or endorsed by official Catan-related entities. See [LICENSE](LICENSE) for trademark and unofficial-use notices.

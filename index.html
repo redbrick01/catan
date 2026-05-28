@@ -8,10 +8,17 @@
   </head>
   <body>
     <main class="app" aria-label="Catan 오리지널">
-<section id="setupScreen" class="setup-screen">
+      <section id="setupScreen" class="setup-screen">
         <div class="setup-box setup-view" id="modeSelectView">
           <p class="eyebrow">Original Rules</p>
           <h1>Catan</h1>
+          <label class="field setup-language-field">
+            <span>언어</span>
+            <select id="languageSelect" data-language-select>
+              <option value="ko">한국어</option>
+              <option value="en">English</option>
+            </select>
+          </label>
           <div class="mode-actions" aria-label="게임 모드 선택">
             <button id="offlineModeButton" type="button">오프라인 게임</button>
             <button id="onlineCreateModeButton" type="button">온라인 방 만들기</button>
@@ -178,7 +185,7 @@
           </div>
           <button id="endTurnButton" class="wide-button" type="button">턴 넘기기</button>
           <button id="newGameButton" class="wide-button muted" type="button">새 게임</button>
-          <button id="feelSettingsButton" class="wide-button muted" type="button">효과 설정</button>
+          <button id="feelSettingsButton" class="wide-button muted" type="button">설정</button>
         </section>
 
         <section class="panel-block table-cost-card" id="costReferenceCard" aria-label="비용표">
