@@ -28,15 +28,20 @@ includes(script, "pending.commandName", "online command rejection should keep co
 includes(script, "rejectLocalAction", "local validation failures should emit rejection cues");
 includes(script, "motion-road-draw", "road target motion class should be used");
 includes(script, "motion-build-pop", "building/dev motion class should be used");
+includes(script, "road-token-motion", "road motion should animate an inner SVG wrapper");
+includes(script, "building-motion", "building motion should animate an inner SVG wrapper");
 includes(script, "motion-trade-swap", "trade motion class should be used");
 includes(script, "motion-win-highlight", "winner motion class should be used");
 includes(script, "motion-command-rejected", "rejection motion class should be used");
 
 includes(styles, ".motion-road-draw", "road draw style should exist");
 includes(styles, ".motion-build-pop", "build pop style should exist");
+includes(styles, ".motion-road-draw .road-token-motion", "road draw animation should not replace SVG placement transform");
+includes(styles, ".motion-build-pop .building-motion", "build pop animation should not replace SVG placement transform");
 includes(styles, ".motion-trade-swap", "trade swap style should exist");
 includes(styles, ".motion-win-highlight", "win highlight style should exist");
 includes(styles, ".motion-command-rejected", "command rejected style should exist");
-includes(styles, "html[data-effective-motion=\"reduced\"] .motion-road-draw", "reduced motion should suppress action result animation");
+includes(styles, "html[data-effective-motion=\"reduced\"] .motion-road-draw .road-token-motion", "reduced motion should suppress road animation");
+includes(styles, "html[data-effective-motion=\"reduced\"] .motion-build-pop .building-motion", "reduced motion should suppress building animation");
 
 console.log("game-feel action result static checks passed");

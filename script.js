@@ -269,7 +269,7 @@ const ONLINE_IDENTITY_KEY = "catanOnlineIdentity";
 const REQUEST_TIMEOUT_MS = 8000;
 const MOBILE_VIEWPORT_QUERY = "(max-width: 780px) and (orientation: portrait)";
 const LANDSCAPE_PANEL_QUERY = "(max-width: 1150px) and (orientation: landscape)";
-const FEEL_SETTINGS_STORAGE_KEY = "katanFeelSettings";
+const FEEL_SETTINGS_STORAGE_KEY = "catanFeelSettings";
 const DEFAULT_FEEL_SETTINGS = {
   schemaVersion: 1,
   motionMode: "auto",
@@ -3366,7 +3366,7 @@ function restoreCostCardPosition() {
   delete costReferenceCard.dataset.x;
   delete costReferenceCard.dataset.y;
   try {
-    localStorage.removeItem("katanCostCardPosition");
+    localStorage.removeItem("catanCostCardPosition");
   } catch {
     // Storage cleanup is best-effort.
   }
@@ -3392,13 +3392,13 @@ function restoreDicePanelPosition() {
     clearFloatingPanelTransforms();
     return;
   }
-  const saved = localStorage.getItem("katanDicePanelPosition");
+  const saved = localStorage.getItem("catanDicePanelPosition");
   if (!saved) return;
   try {
     const { x, y } = JSON.parse(saved);
     applyDicePanelPosition(x, y);
   } catch {
-    localStorage.removeItem("katanDicePanelPosition");
+    localStorage.removeItem("catanDicePanelPosition");
   }
 }
 
@@ -3467,7 +3467,7 @@ function initDicePanelDrag() {
 
   const endDrag = (event) => {
     if (!drag || event.pointerId !== drag.pointerId) return;
-    localStorage.setItem("katanDicePanelPosition", JSON.stringify({
+    localStorage.setItem("catanDicePanelPosition", JSON.stringify({
       x: Number(dicePanel.dataset.x) || 0,
       y: Number(dicePanel.dataset.y) || 0
     }));
@@ -4249,17 +4249,40 @@ function actionFeedbackKey(kind, id) {
   return `${kind}:${id ?? "none"}`;
 }
 
+function actionFeedbackSelector(kind, id) {
+  const attribute = kind === "edge" ? "data-edge" : "data-vertex";
+  return `[${attribute}="${String(id)}"]`;
+}
+
+function applyActionFeedbackDom(kind, id, className, enabled) {
+  const element = svg?.querySelector(actionFeedbackSelector(kind, id));
+  if (!element) return false;
+  element.classList.toggle(className, enabled);
+  return true;
+}
+
 function markActionFeedback(kind, id, className) {
   const key = actionFeedbackKey(kind, id);
-  actionFeedbackRuntime.recent.set(key, className);
+  actionFeedbackRuntime.recent.set(key, { className, active: false });
+
+  requestAnimationFrame(() => {
+    const entry = actionFeedbackRuntime.recent.get(key);
+    if (!entry) return;
+    entry.active = true;
+    applyActionFeedbackDom(kind, id, className, true);
+  });
+
   window.setTimeout(() => {
+    const entry = actionFeedbackRuntime.recent.get(key);
+    if (!entry) return;
+    applyActionFeedbackDom(kind, id, entry.className, false);
     actionFeedbackRuntime.recent.delete(key);
-    render();
   }, actionFeedbackRuntime.ttlMs);
 }
 
 function actionFeedbackClass(kind, id) {
-  return actionFeedbackRuntime.recent.get(actionFeedbackKey(kind, id)) || "";
+  const entry = actionFeedbackRuntime.recent.get(actionFeedbackKey(kind, id));
+  return entry?.active ? entry.className : "";
 }
 
 function emitActionResultCue(type, data = {}) {
@@ -6058,6 +6081,7 @@ function drawRoadPiece(edge, color) {
     transform: `translate(${midX} ${midY}) rotate(${angle})`
   });
   group.dataset.edge = edge.id;
+  const motionGroup = createSvg("g", { class: "road-token-motion" });
   const shadow = createSvg("rect", {
     class: "road-token-shadow",
     x: -length * 0.34,
@@ -6085,7 +6109,8 @@ function drawRoadPiece(edge, color) {
     rx: 2,
     fill: color
   });
-  group.append(shadow, body, shine);
+  motionGroup.append(shadow, body, shine);
+  group.append(motionGroup);
   return group;
 }
 
@@ -6164,21 +6189,23 @@ function createBuilding(vertex) {
     transform: `translate(${vertex.x} ${vertex.y})`
   });
   group.dataset.vertex = vertex.id;
+  const motionGroup = createSvg("g", { class: "building-motion" });
 
   if (vertex.city) {
     const badge = createSvg("circle", { class: "building-badge city-badge", cx: 0, cy: 0, r: 24, fill: ownerColor });
     const face = createSvg("circle", { class: "building-face", cx: 0, cy: 0, r: 18 });
     const icon = drawModernCityIcon(ownerColor);
     const shine = createSvg("path", { class: "building-badge-shine", d: "M-10,-16 C-4,-20 6,-20 12,-14" });
-    group.append(badge, face, icon, shine);
+    motionGroup.append(badge, face, icon, shine);
   } else {
     const badge = createSvg("circle", { class: "building-badge settlement-badge", cx: 0, cy: 0, r: 19, fill: ownerColor });
     const face = createSvg("circle", { class: "building-face", cx: 0, cy: 0, r: 14 });
     const icon = drawModernSettlementIcon(ownerColor);
     const shine = createSvg("path", { class: "building-badge-shine", d: "M-8,-12 C-3,-15 5,-15 10,-10" });
-    group.append(badge, face, icon, shine);
+    motionGroup.append(badge, face, icon, shine);
   }
 
+  group.append(motionGroup);
   return group;
 }
 
@@ -6878,7 +6905,7 @@ function updateTradeRatioLabel() {
 
 function installTestHelpers() {
   const params = new URLSearchParams(window.location.search);
-  window.__katanFeelTest = {
+  window.__catanFeelTest = {
     makeCueKey,
     makeCueScopeId,
     nextOfflineCueRevision,
@@ -6915,7 +6942,7 @@ function installTestHelpers() {
   };
   if (params.get("test") !== "1") return;
 
-  window.__katanTest = {
+  window.__catanTest = {
     setResources(playerId, resources) {
       const player = game.players[playerId];
       if (!player) return false;

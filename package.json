@@ -1,7 +1,8 @@
 {
+  "name": "catan",
   "scripts": {
-    "open": "node start-katan.js",
-    "start": "node server.js"
+    "open": "node start-catan.js",
+    "start": "node start-catan.js --no-open --foreground"
   },
   "dependencies": {
     "ws": "^8.17.1"

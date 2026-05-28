@@ -1,108 +1,125 @@
-# Katan
+# Catan 설치 및 실행 가이드
 
-브라우저에서 실행되는 카탄 스타일 보드게임 프로젝트입니다. 오프라인 로컬 플레이, 소규모 LAN/온라인 방 플레이, 서버가 제어하는 봇 플레이를 함께 지원하는 것을 목표로 합니다.
+Catan은 브라우저에서 실행되는 보드게임입니다. 이 문서는 실제 플레이어가 게임을 설치하고 실행하는 방법만 안내합니다.
 
-이 저장소는 단순한 UI 데모가 아니라 실제 플레이 가능한 게임 흐름을 기준으로 관리됩니다. 규칙 정확도, 서버 권위 상태 동기화, 비공개 정보 보호, 회귀 테스트 문서를 함께 유지합니다.
-
-## 주요 기능
-
-- 3~4인 오프라인 플레이
-- 랜덤 보드, 숫자 칩, 사막, 도둑, 항구 배치
-- 초기 정착지/도로 배치와 시작 자원 지급
-- 주사위, 자원 생산, 은행 재고 처리
-- 도로, 정착지, 도시 건설
-- 은행/항구 교환, 플레이어 간 교환
-- 개발 카드 구매와 사용
-- 7 처리, 자원 버리기, 도둑 이동, 자원 빼앗기
-- 최장 교역로, 최대 기사력, 승점 판정
-- WebSocket 기반 온라인 방 생성/참가/재접속
-- 서버 권위 게임 상태와 플레이어별 비공개 정보 필터링
-- 봇 플레이어 추가, 자동 턴 진행, 기본 의사결정
-
-## 실행
-
-필요 조건:
+## 필요 조건
 
 - Node.js
 - npm
 
-설치:
+실행 스크립트는 게임에 필요한 패키지를 자동으로 확인하고, 없으면 설치합니다.
+단, Node.js와 npm 자체는 먼저 설치되어 있어야 합니다.
+
+설치 여부는 터미널에서 확인할 수 있습니다.
 
 ```bash
-npm install
+node -v
+npm -v
 ```
 
-서버 실행:
+## 가장 쉬운 실행
+
+프로젝트 폴더에서 운영체제에 맞는 실행 파일을 엽니다.
+
+macOS:
+
+```text
+start-catan.command
+```
+
+Windows:
+
+```text
+start-catan.cmd
+```
+
+실행하면 필요한 패키지를 확인한 뒤 서버를 시작합니다. 패키지가 없으면 자동으로 `npm install`을 실행합니다.
+처음 실행할 때는 설치 때문에 잠시 멈춘 것처럼 보일 수 있지만, 설치 로그가 이어서 표시되면 정상입니다.
+
+서버가 준비되면 아래 안내가 표시됩니다.
+
+```text
+게임 종료 및 서버를 중지하려면 Ctrl+C를 입력하세요.
+```
+
+이 창을 닫거나 `Ctrl+C`를 입력하면 실행 중인 서버를 종료할 수 있습니다.
+
+## 터미널에서 실행
+
+프로젝트 폴더에서 아래 명령을 사용합니다.
+
+서버를 터미널에 계속 띄워두고 실행:
 
 ```bash
 npm start
 ```
 
-또는 OS별 실행 스크립트를 사용할 수 있습니다.
+브라우저까지 자동으로 열기:
 
 ```bash
 npm run open
 ```
 
-기본 포트는 `4173`입니다. 서버를 실행하면 로컬 접속 URL과 같은 네트워크에서 접속 가능한 URL이 터미널에 표시됩니다.
+`npm start`는 서버가 터미널 안에서 계속 실행되므로 `Ctrl+C`로 종료합니다.
+`npm run open`은 서버를 백그라운드로 실행하고 브라우저를 연 뒤 명령을 끝냅니다.
 
-## 프로젝트 구조
+## 접속 주소
 
-```text
-index.html       브라우저 UI 마크업
-styles.css       화면 레이아웃과 반응형 스타일
-script.js        클라이언트 게임/UI/온라인 연결 로직
-server.js        정적 파일 서버, WebSocket 서버, 온라인 게임 엔진, 봇 러너
-scripts/         WebSocket 및 정적 회귀 테스트 스크립트
-docs/            기능별 문서, 구현 계획, 테스트 계획, 최종 보고서
-assets/          프로젝트 정적 자산
-```
-
-## 문서 안내
-
-문서는 기능별로 다시 묶어 `docs/features` 아래에 정리했습니다.
-
-- [문서 허브](docs/README.md)
-- [프로젝트 진행 상황과 발전 로드맵](docs/project-status-and-roadmap.md)
-- [오프라인 플레이와 규칙 정확도](docs/features/offline-play.md)
-- [온라인 멀티플레이](docs/features/online-multiplayer.md)
-- [봇 플레이어](docs/features/bot-players.md)
-- [UI와 플레이 보조](docs/features/ui-and-play-assists.md)
-- [테스트와 검증](docs/features/testing-and-quality.md)
-- [개발 프로세스](docs/features/development-process.md)
-
-기존의 날짜별 구현 계획, 테스트 계획, 최종 보고서는 삭제하지 않고 보존했습니다. 새 기능별 문서는 기존 문서를 찾아가기 위한 진입점이자 현재 기능 상태 요약입니다.
-
-## 개발 원칙
-
-이 프로젝트의 작업 흐름은 다음 산출물을 기준으로 합니다.
+같은 컴퓨터에서 접속:
 
 ```text
-1. 관련 문서 확인
-2. 구현 계획 작성 또는 갱신
-3. 구현
-4. 테스트 계획 작성
-5. 테스트 수행
-6. 최종 보고서 작성
+http://127.0.0.1:4173/
 ```
 
-상세 기준은 [개발 프로세스](docs/features/development-process.md)와 `catan_implementation_process_guideline.md`를 따릅니다.
+같은 Wi-Fi 또는 LAN에 있는 다른 기기에서 접속할 때는 서버 실행 시 표시되는 네트워크 URL을 사용합니다.
 
-## 테스트
+```text
+http://<서버 컴퓨터 IP>:4173/
+```
 
-현재 `scripts` 디렉터리에는 온라인 핵심 기능과 봇 안정화 회귀 테스트가 포함되어 있습니다.
+예:
 
-대표 실행 예:
+```text
+http://192.168.0.10:4173/
+```
+
+## 게임 시작
+
+1. 브라우저에서 접속합니다.
+2. 오프라인 또는 온라인 모드를 선택합니다.
+3. 온라인 모드는 방을 만들고 표시되는 참가 링크를 다른 플레이어에게 공유합니다.
+4. 인원이 부족하면 로비에서 봇을 추가할 수 있습니다.
+
+## 종료
+
+`start-catan.command`, `start-catan.cmd`, `npm start`로 실행했다면 실행 중인 터미널 창에서 아래 키를 입력합니다.
+
+```text
+Ctrl+C
+```
+
+`npm run open`으로 백그라운드 실행했다면 아래 명령으로 서버를 종료합니다.
 
 ```bash
-node --check server.js
-node --check script.js
-node scripts/online-08-basic-building-ws-test.js
-node scripts/online-09-bank-trade-ws-test.js
-node scripts/online-10-player-trade-ws-test.js
-node scripts/online-11-development-cards-ws-test.js
-node scripts/online-12-robber-seven-pending-ws-test.js
-node scripts/bot-09-stabilization-regression-test.js
+node stop-catan.js
 ```
 
-더 자세한 테스트 범위와 미검증 항목은 [테스트와 검증](docs/features/testing-and-quality.md)을 확인하세요.
+Windows에서는 종료 파일을 직접 실행할 수도 있습니다.
+
+```text
+stop-catan.cmd
+```
+
+## 문제 해결
+
+포트가 이미 사용 중이면 기존 서버가 실행 중일 수 있습니다. `node stop-catan.js`로 종료한 뒤 다시 실행합니다.
+
+브라우저에서 접속이 안 되면 아래를 확인합니다.
+
+- 서버 실행 창에 오류가 없는지
+- Node.js와 npm이 설치되어 있는지
+- 같은 네트워크에 연결되어 있는지
+- 방화벽이 `4173` 포트를 막고 있지 않은지
+- 네트워크 URL의 IP 주소가 현재 서버 컴퓨터 IP와 같은지
+
+패키지 설치가 실패하면 인터넷 연결을 확인한 뒤 다시 실행합니다.

@@ -508,12 +508,18 @@ h1 {
   animation: motion-robber-move var(--motion-emphasis) var(--ease-emphasis) 1;
 }
 
-.motion-road-draw {
+.motion-road-draw .road-token-motion {
   animation: motion-road-draw var(--motion-emphasis) var(--ease-emphasis) 1;
+  transform-box: fill-box;
+  transform-origin: center;
+  will-change: transform, opacity;
 }
 
-.motion-build-pop {
+.motion-build-pop .building-motion {
   animation: motion-build-pop var(--motion-emphasis) var(--ease-emphasis) 1;
+  transform-box: fill-box;
+  transform-origin: center;
+  will-change: transform, filter;
 }
 
 .motion-trade-swap {
@@ -1606,7 +1612,6 @@ h1 {
 .edge-visible.buildable { stroke: rgba(244, 196, 96, 0.42); stroke-width: 16; }
 .road-token {
   pointer-events: none;
-  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.45));
 }
 .road-token-shadow {
   opacity: 0.38;
@@ -3043,8 +3048,8 @@ html[data-effective-motion="reduced"] .motion-turn-pulse {
 
 html[data-effective-motion="reduced"] .motion-alert-cue,
 html[data-effective-motion="reduced"] .motion-robber-move,
-html[data-effective-motion="reduced"] .motion-road-draw,
-html[data-effective-motion="reduced"] .motion-build-pop,
+html[data-effective-motion="reduced"] .motion-road-draw .road-token-motion,
+html[data-effective-motion="reduced"] .motion-build-pop .building-motion,
 html[data-effective-motion="reduced"] .motion-trade-swap,
 html[data-effective-motion="reduced"] .motion-win-highlight,
 html[data-effective-motion="reduced"] .motion-command-rejected {
@@ -3070,8 +3075,8 @@ html[data-effective-motion="reduced"] .motion-resource-bump {
   .motion-turn-pulse,
   .motion-alert-cue,
   .motion-robber-move,
-  .motion-road-draw,
-  .motion-build-pop,
+  .motion-road-draw .road-token-motion,
+  .motion-build-pop .building-motion,
   .motion-trade-swap,
   .motion-win-highlight,
   .motion-command-rejected,

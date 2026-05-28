@@ -1,63 +1,73 @@
-# Katan 문서 허브
+# Catan 문서 허브
 
-이 디렉터리는 Katan 프로젝트의 기능 설명, 구현 계획, 테스트 계획, 최종 보고서를 보관합니다. 기존 문서는 날짜와 작업 단계 기준으로 작성되어 있어 추적에는 좋지만, 처음 보는 사람이 기능별 맥락을 잡기 어렵습니다. 그래서 기능별 진입 문서를 `docs/features`에 추가해 관련 문서를 다시 묶었습니다.
+이 디렉터리는 Catan 프로젝트의 문서 기준점입니다. 기능별 현재 상태, 구현 계획, 테스트 결과, 최종 보고서, 규칙 기준 문서를 역할별로 분리해 보관합니다.
 
 ## 먼저 읽을 문서
 
-1. [루트 README](../README.md)
-2. [프로젝트 진행 상황과 발전 로드맵](project-status-and-roadmap.md)
-3. [개발 프로세스](features/development-process.md)
-4. [오프라인 플레이와 규칙 정확도](features/offline-play.md)
-5. [온라인 멀티플레이](features/online-multiplayer.md)
-6. [봇 플레이어](features/bot-players.md)
-7. [테스트와 검증](features/testing-and-quality.md)
+1. [프로젝트 개요](overview/project-overview.md)
+2. [프로젝트 진행 상황과 발전 로드맵](overview/status-and-roadmap.md)
+3. [개발 프로세스 요약](features/development-process.md)
+4. [문서 작성/배치 규칙](guides/documentation-style-guide.md)
+5. [오프라인 플레이와 규칙 정확도](features/offline-play.md)
+6. [온라인 멀티플레이](features/online-multiplayer.md)
+7. [봇 플레이어](features/bot-players.md)
+8. [테스트와 검증](features/testing-and-quality.md)
 
-## 기능별 문서 묶음
+## 디렉터리 구조
+
+| 위치 | 용도 | 현재 수량 |
+| --- | --- | ---: |
+| `features/` | 기능별 현재 상태와 관련 문서 링크 | 6 |
+| `overview/` | 프로젝트 개요, 현황과 로드맵 | 3 |
+| `guides/` | 개발/문서화 절차 | 3 |
+| `reference/` | 규칙, 규칙 차이 분석, 봇 기준 | 4 |
+| `plans/` | 날짜별 구현 계획 | 64 |
+| `tests/` | 테스트 계획, 테스트 결과, 감사 문서 | 47 |
+| `tests/artifacts/` | 스크린샷, JSON 로그 등 테스트 산출물 | 13 |
+| `reports/` | 최종 보고서와 gate summary | 57 |
+| `issues/` | 알려진 문제와 후속 조치 | 4 |
+
+## 기능별 진입점
 
 | 기능 영역 | 설명 | 진입 문서 |
 | --- | --- | --- |
-| 오프라인 플레이 | 기본 카탄 규칙, 보드, 턴, 건설, 교역, 개발 카드, 승점 | [offline-play.md](features/offline-play.md) |
+| 오프라인 플레이 | 보드, 턴, 건설, 교역, 개발 카드, 승점 | [offline-play.md](features/offline-play.md) |
 | 온라인 멀티플레이 | LAN 방, WebSocket, 서버 권위 상태, 재접속, 비공개 정보 | [online-multiplayer.md](features/online-multiplayer.md) |
 | 봇 플레이어 | 봇 추가/제거, 자동 턴, 초기 배치, 기본 행동, pending 처리 | [bot-players.md](features/bot-players.md) |
-| UI와 플레이 보조 | 모드 선택, 로비, 보드 표시, 카드/자원 패널, 교환 UX | [ui-and-play-assists.md](features/ui-and-play-assists.md) |
+| UI와 플레이 보조 | 모드 선택, 로비, 보드 표시, 카드/자원 패널, 교환 UX, 게임 feel | [ui-and-play-assists.md](features/ui-and-play-assists.md) |
 | 테스트와 품질 | 자동 테스트, 수동 테스트, 회귀 범위, known issues | [testing-and-quality.md](features/testing-and-quality.md) |
 | 개발 프로세스 | 계획, 구현, 테스트, 최종 보고서 작성 규칙 | [development-process.md](features/development-process.md) |
 
+## 기준 문서
+
+| 문서 | 용도 |
+| --- | --- |
+| [development-process-guideline.md](guides/development-process-guideline.md) | 전체 개발 산출물 절차 |
+| [bot-development-process-guideline.md](guides/bot-development-process-guideline.md) | 봇 구현 절차와 검증 기준 |
+| [documentation-style-guide.md](guides/documentation-style-guide.md) | 문서 위치, 파일명, 형식 규칙 |
+| [catan-detailed-rules.md](reference/catan-detailed-rules.md) | Catan 규칙 상세 기준 |
+| [rule-gap-analysis.md](reference/rule-gap-analysis.md) | 구현과 규칙 사이의 차이 분석 |
+| [playbot-reference-guideline.md](reference/playbot-reference-guideline.md) | 봇 판단/행동 기준 |
+
 ## 최근 단위 개발
 
-- [턴 안내 시각 효과 계획](implementation_plans/2026-05-27_turn-guidance-visual-effects-plan.md)
-- [턴 안내 시각 효과 테스트 계획](test_plans/2026-05-27_turn-guidance-visual-effects-test-plan.md)
-- [턴 안내 시각 효과 최종 보고서](final_reports/2026-05-27_turn-guidance-visual-effects-final-report.md)
+- [턴 안내 시각 효과 계획](plans/2026-05-27_turn-guidance-visual-effects-plan.md)
+- [턴 안내 시각 효과 테스트 계획](tests/2026-05-27_turn-guidance-visual-effects-test-plan.md)
+- [턴 안내 시각 효과 최종 보고서](reports/2026-05-27_turn-guidance-visual-effects-final-report.md)
+- [게임 feel 품질 gate 계획](plans/2026-05-27_game-feel-008-quality-gate-plan.md)
+- [봇 안정화 회귀 계획](plans/2026-05-26_bot-09-stabilization-regression-plan.md)
 
-## 현재 상태와 로드맵
-
-현재까지 구현된 기능, 검증 상태, 남은 제한, 후속 발전 방향은 [프로젝트 진행 상황과 발전 로드맵](project-status-and-roadmap.md)에 정리합니다.
-
-## 기존 문서 보관 방식
-
-기존 산출물은 아래 디렉터리에 그대로 유지합니다.
+## 새 문서 추가 위치
 
 ```text
-docs/implementation_plans/  기능 구현 전 계획과 범위
-docs/test_plans/            테스트 계획, 테스트 결과, 스크린샷, 로그
-docs/final_reports/         작업 완료 보고서와 검증 요약
-docs/known_issues/          남은 문제, 제한 사항, 후속 권장 작업
+구현 계획       docs/plans/
+테스트 계획     docs/tests/
+테스트 결과     docs/tests/
+스크린샷/로그   docs/tests/artifacts/
+최종 보고서     docs/reports/
+알려진 문제     docs/issues/
+규칙 기준       docs/reference/
+작업 절차       docs/guides/
 ```
 
-루트의 기준 문서는 프로젝트 전체의 규칙과 작업 원칙을 담고 있습니다.
-
-```text
-catan_detailed_rules.md
-catan_project_rule_gap_analysis.md
-catan_implementation_process_guideline.md
-catan_bot_development_process_guideline.md
-catan_playbot_reference_guideline.md
-```
-
-## 문서 작성 규칙
-
-- 새 기능은 먼저 `docs/implementation_plans`에 구현 계획을 작성합니다.
-- 구현 후 `docs/test_plans`에 테스트 계획과 결과를 남깁니다.
-- 완료 시 `docs/final_reports`에 최종 보고서를 작성합니다.
-- 기능 상태가 바뀌면 `docs/features`의 해당 기능 문서를 갱신합니다.
-- 알려진 제한이나 미검증 항목은 `docs/known_issues`에 남깁니다.
+기능 상태가 바뀌면 해당 `features/` 문서와 [프로젝트 현황](overview/status-and-roadmap.md)을 함께 갱신합니다.

@@ -18,20 +18,20 @@
 ## 문서 위치
 
 ```text
-docs/implementation_plans/  구현 전 계획
-docs/test_plans/            테스트 계획, 실행 결과, 스크린샷, 로그
-docs/final_reports/         완료 보고서
-docs/known_issues/          남은 문제와 후속 권장
-docs/features/              기능별 현재 상태와 기존 문서 묶음
+docs/plans/     구현 전 계획
+docs/tests/     테스트 계획과 실행 결과
+docs/reports/   완료 보고서
+docs/issues/    남은 문제와 후속 권장
+docs/features/  기능별 현재 상태와 기존 문서 묶음
 ```
 
 ## 기준 문서
 
-- [일반 개발 프로세스 가이드라인](../../catan_implementation_process_guideline.md)
-- [봇 개발 프로세스 가이드라인](../../catan_bot_development_process_guideline.md)
-- [상세 규칙 정리](../../catan_detailed_rules.md)
-- [규칙 보완 문서](../../catan_project_rule_gap_analysis.md)
-- [플레이봇 참고자료 기반 구현 가이드라인](../../catan_playbot_reference_guideline.md)
+- [일반 개발 프로세스 가이드라인](../guides/development-process-guideline.md)
+- [봇 개발 프로세스 가이드라인](../guides/bot-development-process-guideline.md)
+- [상세 규칙 정리](../reference/catan-detailed-rules.md)
+- [규칙 보완 문서](../reference/rule-gap-analysis.md)
+- [플레이봇 참고자료 기반 구현 가이드라인](../reference/playbot-reference-guideline.md)
 
 ## 기능 변경 시 체크리스트
 
@@ -71,4 +71,3 @@ docs/features/              기능별 현재 상태와 기존 문서 묶음
 - 오래된 내용이 있으면 삭제보다 "현재 상태"와 "제한 사항"으로 정정합니다.
 - 스크린샷, 로그, 테스트 결과는 어떤 기능 검증의 증거인지 문서에 연결합니다.
 - 빈 로그 파일이나 로컬 임시 파일은 `.gitignore` 대상인지 확인합니다.
-

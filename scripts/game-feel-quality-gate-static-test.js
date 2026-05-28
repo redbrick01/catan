@@ -23,7 +23,7 @@ function includes(source, needle, label) {
   "006b-event-sound"
 ].forEach((name) => {
   includes(
-    fs.readdirSync(path.join(root, "docs", "final_reports")).join("\n"),
+    fs.readdirSync(path.join(root, "docs", "reports")).join("\n"),
     `2026-05-27_game-feel-${name}-final-report.md`,
     `${name} final report should exist`
   );

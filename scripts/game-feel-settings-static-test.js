@@ -85,7 +85,7 @@ settings.saveFeelSettings({
   turnEmphasis: "strong",
   importantEventEmphasis: false
 });
-assert(storage.has("katanFeelSettings"), "settings are persisted");
+assert(storage.has("catanFeelSettings"), "settings are persisted");
 assert.strictEqual(documentElement.dataset.motionMode, "reduced", "motion mode is reflected on DOM");
 assert.strictEqual(documentElement.dataset.effectiveMotion, "reduced", "effective motion is reflected on DOM");
 assert.strictEqual(documentElement.dataset.sound, "on", "sound state is reflected on DOM");
@@ -93,7 +93,7 @@ assert.strictEqual(documentElement.dataset.turnEmphasis, "strong", "turn emphasi
 assert.strictEqual(documentElement.dataset.eventEmphasis, "off", "event emphasis is reflected on DOM");
 assert(classList.has("is-reduced-motion"), "reduced motion class is applied");
 
-storage.set("katanFeelSettings", "{bad json");
+storage.set("catanFeelSettings", "{bad json");
 assert.strictEqual(settings.loadFeelSettings().soundVolume, 60, "broken storage falls back to defaults");
 
 console.log("game-feel-settings-static-test passed");

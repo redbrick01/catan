@@ -2,7 +2,7 @@
 
 ## 목적
 
-UI는 카탄의 복잡한 상태를 플레이어가 즉시 이해하고 행동할 수 있게 만드는 계층입니다. 특히 온라인 모드에서는 로비, 연결 상태, 현재 턴, pending action, 교환 응답, 비공개 정보 표시가 게임 진행을 좌우합니다.
+UI는 Catan의 복잡한 상태를 플레이어가 즉시 이해하고 행동할 수 있게 만드는 계층입니다. 특히 온라인 모드에서는 로비, 연결 상태, 현재 턴, pending action, 교환 응답, 비공개 정보 표시가 게임 진행을 좌우합니다.
 
 ## 현재 지원 범위
 
@@ -37,28 +37,28 @@ script.js
 
 ## 관련 구현 계획
 
-- [Stage 6 UI 플레이 보조](../implementation_plans/2026-05-26_stage-6-ui-play-assists.md)
-- [3단계 UX 개선 구체화 계획](../implementation_plans/2026-05-27_stage-3-ux-improvement-deepening-plan.md)
-- [턴 안내 시각 효과 계획](../implementation_plans/2026-05-27_turn-guidance-visual-effects-plan.md)
-- [게임성 강화를 위한 시각/모션/이미지/아이콘/사운드 계획](../implementation_plans/2026-05-27_game-feel-visual-audio-motion-plan.md)
-- [온라인 02 UI/로비](../implementation_plans/2026-05-26_online-02-ui-lobby-plan.md)
-- [온라인 UI 교환 아이콘/건설 버튼 상태](../implementation_plans/2026-05-26_online-ui-trade-icons-build-button-state-plan.md)
-- [플레이어 교환 UX](../implementation_plans/2026-05-26_play-007-player-trade-ux.md)
-- [사용자 요청 UI 흐름 수정 계획](../implementation_plans/2026-05-27_requested-ui-flow-fixes-plan.md)
+- [Stage 6 UI 플레이 보조](../plans/2026-05-26_stage-6-ui-play-assists.md)
+- [3단계 UX 개선 구체화 계획](../plans/2026-05-27_stage-3-ux-improvement-deepening-plan.md)
+- [턴 안내 시각 효과 계획](../plans/2026-05-27_turn-guidance-visual-effects-plan.md)
+- [게임성 강화를 위한 시각/모션/이미지/아이콘/사운드 계획](../plans/2026-05-27_game-feel-visual-audio-motion-plan.md)
+- [온라인 02 UI/로비](../plans/2026-05-26_online-02-ui-lobby-plan.md)
+- [온라인 UI 교환 아이콘/건설 버튼 상태](../plans/2026-05-26_online-ui-trade-icons-build-button-state-plan.md)
+- [플레이어 교환 UX](../plans/2026-05-26_play-007-player-trade-ux.md)
+- [사용자 요청 UI 흐름 수정 계획](../plans/2026-05-27_requested-ui-flow-fixes-plan.md)
 
 ## 관련 테스트와 시각 자료
 
-- [Stage 6 테스트 계획](../test_plans/2026-05-26_stage-6-ui-play-assists-test-plan.md)
-- [온라인 02 UI/로비 테스트 계획](../test_plans/2026-05-26_online-02-ui-lobby-test-plan.md)
-- [온라인 UI 교환 아이콘/건설 버튼 상태 테스트 계획](../test_plans/2026-05-26_online-ui-trade-icons-build-button-state-test-plan.md)
-- [턴 안내 시각 효과 테스트 계획](../test_plans/2026-05-27_turn-guidance-visual-effects-test-plan.md)
-- [턴 안내 시각 효과 최종 보고서](../final_reports/2026-05-27_turn-guidance-visual-effects-final-report.md)
-- [전체 기능 테스트 실행 스크린샷](../test_plans/2026-05-26_full-feature-test-run-screenshot.png)
-- [로비 브라우저 스크린샷](../test_plans/2026-05-26_online-02-ui-lobby-browser.png)
-- [항구 redesign 스크린샷](../test_plans/2026-05-26_harbor-redesign.png)
-- [플레이어 카드 redesign 스크린샷](../test_plans/2026-05-26_player-card-redesign.png)
-- [모바일 remediation 스크린샷](../test_plans/2026-05-26_remediation-mobile.png)
-- [데스크톱 remediation 스크린샷](../test_plans/2026-05-26_remediation-desktop.png)
+- [Stage 6 테스트 계획](../tests/2026-05-26_stage-6-ui-play-assists-test-plan.md)
+- [온라인 02 UI/로비 테스트 계획](../tests/2026-05-26_online-02-ui-lobby-test-plan.md)
+- [온라인 UI 교환 아이콘/건설 버튼 상태 테스트 계획](../tests/2026-05-26_online-ui-trade-icons-build-button-state-test-plan.md)
+- [턴 안내 시각 효과 테스트 계획](../tests/2026-05-27_turn-guidance-visual-effects-test-plan.md)
+- [턴 안내 시각 효과 최종 보고서](../reports/2026-05-27_turn-guidance-visual-effects-final-report.md)
+- [전체 기능 테스트 실행 스크린샷](../tests/artifacts/2026-05-26_full-feature-test-run-screenshot.png)
+- [로비 브라우저 스크린샷](../tests/artifacts/2026-05-26_online-02-ui-lobby-browser.png)
+- [항구 redesign 스크린샷](../tests/artifacts/2026-05-26_harbor-redesign.png)
+- [플레이어 카드 redesign 스크린샷](../tests/artifacts/2026-05-26_player-card-redesign.png)
+- [모바일 remediation 스크린샷](../tests/artifacts/2026-05-26_remediation-mobile.png)
+- [데스크톱 remediation 스크린샷](../tests/artifacts/2026-05-26_remediation-desktop.png)
 
 ## 유지보수 체크리스트
 
